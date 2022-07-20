@@ -1,0 +1,10 @@
+from pytorch/pytorch:1.8.1-cuda10.2-cudnn7-runtime
+RUN pip install opencv-python einops matplotlib jpeg4py \
+        tqdm timm pyyaml yacs easydict tensorboardX
+RUN apt-get update && apt-get -y install libgl1
+RUN apt-get update -y && apt install -y build-essential
+RUN apt-get install -y libglib2.0-0
+RUN python -m pip install detectron2==0.6 -f   https://dl.fbaipublicfiles.com/detectron2/wheels/cu102/torch1.8/index.html
+RUN mkdir libs
+WORKDIR libs
+
