@@ -11,7 +11,7 @@ To validate the performance of our method on the new task, we introduce two new 
 
 ![DETR](images/MainArch.png)
 
-Details of the Counting-DETR model architecture and experimental results can be found in our following paper: [Counting-DETR]()
+Details of the Counting-DETR model architecture and experimental results can be found in our following paper: [Counting-DETR](https://arxiv.org/abs/2207.10988)
 
 ```
 @inproceedings{countingdetr2022,
