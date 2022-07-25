@@ -80,7 +80,7 @@ cd src/CountDETR_147_1st_stage && ./scripts/var_wh_laplace_600.sh
 
 For the 1st stage in FSCD-LVIS experiments:
 ```
-cd src/CountDETR_lvis_1st_stage && ./scripts/weakly_supervise_fscd_147.sh
+cd src/CountDETR_lvis_1st_stage && ./scripts/lvis_1_stage.sh
 ```
 
 For the 2st stage in FSCD-LVIS experiments:
