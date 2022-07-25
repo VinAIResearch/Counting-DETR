@@ -66,6 +66,7 @@ https://drive.google.com/drive/folders/14qzZaV4S8EBUj3yEkgrDQC7iErHxSPjl?usp=sha
 ```
 
 Then, change the directory to the corresponding experiments and run the corresponding scripts. 
+Sample scripts would both train and evaluate experiments.
 
 For the 1st stage in FSCD-147 experiments:
 ```
@@ -86,9 +87,6 @@ For the 2st stage in FSCD-LVIS experiments:
 ```
 cd src/CountDETR_lvis_2nd_stage && ./scripts/var_wh_laplace_lvis_2nd.sh
 ```
-
-Sample scripts would both train and evaluate experiments.
-
 
 ## Acknowledgments
 Our code borrowed some parts of the official repositories of AnchorDETR.
