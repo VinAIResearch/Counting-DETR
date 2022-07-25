@@ -65,10 +65,28 @@ Second, download the dataset and unzip it to each folder from the below link ins
 https://drive.google.com/drive/folders/14qzZaV4S8EBUj3yEkgrDQC7iErHxSPjl?usp=sharing
 ```
 
-Then, change the directory to the corresponding experiments and run the corresponding scripts. For example, to run the 2nd stage in FSCD-147 experiments:
+Then, change the directory to the corresponding experiments and run the corresponding scripts. 
+
+For the 1st stage in FSCD-147 experiments:
 ```
-cd src/CountDETR_147_2nd_stage && ./scripts/var_wh_laplace_600.sh
+cd src/CountDETR_147_1st_stage && ./scripts/weakly_supervise_fscd_147.sh
 ```
+
+For the 2st stage in FSCD-147 experiments:
+```
+cd src/CountDETR_147_1st_stage && ./scripts/var_wh_laplace_600.sh
+```
+
+For the 1st stage in FSCD-LVIS experiments:
+```
+cd src/CountDETR_lvis_1st_stage && ./scripts/weakly_supervise_fscd_147.sh
+```
+
+For the 2st stage in FSCD-LVIS experiments:
+```
+cd src/CountDETR_lvis_2nd_stage && ./scripts/var_wh_laplace_lvis_2nd.sh
+```
+
 Sample scripts would both train and evaluate experiments.
 
 
