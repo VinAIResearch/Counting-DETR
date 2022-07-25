@@ -58,7 +58,7 @@ docker run -it  --name od_cnt --gpus=all  --shm-size=8G --volume="$PWD:/workspac
 
 First, clone this git repo inside the docker container
 ```
-git clone git@github.com:NguyenVanThanhHust/ECCV_2022_temporary.git
+git clone git@github.com:VinAIResearch/Counting-DETR.git
 ```
 Second, download the dataset and unzip it to each folder from the below link inside the docker container:
 ```
