@@ -1,5 +1,11 @@
 **Counting-DETR**: Few-shot Object Counting and Detection
 ========
+##### Table of contents
+1. [Introduction](#Introduction)
+2. [Main Results](#Main-Results)
+3. [Usage](#Usage) 
+4. [Acknowledgments](#Acknowledgments)
+5. [Contacts](#Contacts)
 
 
 ## Introduction
@@ -64,6 +70,11 @@ Then, change the directory to the corresponding experiments and run the correspo
 cd src/CountDETR_147_2nd_stage && ./scripts/var_wh_laplace_600.sh
 ```
 Sample scripts would both train and evaluate experiments.
+
+
+## Acknowledgments
+Our code borrowed some parts of the official repositories of AnchorDETR.
+Thank you so much to the authors for their efforts to release source code and pre-trained weights.
 
 ## Contact
 If you have any questions, feel free to open an issue or contact us at NguyenVanThanhHust@gmail.com.
