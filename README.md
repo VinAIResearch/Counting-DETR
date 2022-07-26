@@ -73,12 +73,12 @@ Counting-DETR
 │   LICENSE    
 └───src
 │   └───CountDETR_147_1st_stage # all expriements for 1st-stage of FSCD-147 dataset is conducted here
-│   |    │   FSCD_147 # extraced from FSCD_147.zip
+│   |    │   FSCD_147 # extracted from FSCD_147.zip
 │   |    │   main.py # source code for 1st stage
 │   |    │   ...
 │   |
 │   └───CountDETR_147_2nd_stage # all expriements for 2nd-stage of FSCD-147 dataset is conducted here
-│   |    │   FSCD_147 # extraced from FSCD_147.zip
+│   |    │   FSCD_147 # extracted from FSCD_147.zip
 │   |    │   main.py # source code for 2nd stage
 │   |    │   ...
 
