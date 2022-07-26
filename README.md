@@ -69,15 +69,15 @@ Extract each dataset for each dataset to the corresponding folder. For example, 
 
 ```
 Counting-DETR
-│   README.md
+│   README.md # This is the Readme you're reading now
 │   LICENSE    
 └───src
-│   └───CountDETR_147_1st_stage
+│   └───CountDETR_147_1st_stage # all expriements for 1st-stage of FSCD-147 dataset is conducted here
 │   |    │   FSCD_147
 │   |    │   main.py
 │   |    │   ...
 │   |
-│   └───CountDETR_147_2nd_stage
+│   └───CountDETR_147_2nd_stage # all expriements for 2nd-stage of FSCD-147 dataset is conducted here
 │   |    │   FSCD_147
 │   |    │   main.py
 │   |    │   ...
