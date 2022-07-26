@@ -60,10 +60,31 @@ First, clone this git repo inside the docker container
 ```
 git clone git@github.com:VinAIResearch/Counting-DETR.git
 ```
-Second, download the dataset and unzip it to each folder from the below link inside the docker container:
+Second, download *our FSCD-147 and FSCD-LVIS datasets* from the below link:
 ```
 https://drive.google.com/drive/folders/14qzZaV4S8EBUj3yEkgrDQC7iErHxSPjl?usp=sharing
 ```
+
+Extract each dataset for each dataset to the corresponding folder. For example, to conduct experiment for 1st stage of FSCD-147 dataset, extract `FSCD_147.zip` to  `src/CountDETR_147_1st_stage`. Folder structure should be like:
+
+```
+Counting-DETR
+│   README.md
+│   LICENSE    
+└───src
+│   └───CountDETR_147_1st_stage
+│   |    │   FSCD_147
+│   |    │   main.py
+│   |    │   ...
+│   |
+│   └───CountDETR_147_2nd_stage
+│   |    │   FSCD_147
+│   |    │   main.py
+│   |    │   ...
+
+```
+
+
 
 Then, change the directory to the corresponding experiments and run the corresponding scripts. 
 Sample scripts would both train and evaluate experiments.
@@ -75,7 +96,7 @@ cd src/CountDETR_147_1st_stage && ./scripts/weakly_supervise_fscd_147.sh
 
 For the 2st stage in FSCD-147 experiments:
 ```
-cd src/CountDETR_147_1st_stage && ./scripts/var_wh_laplace_600.sh
+cd src/CountDETR_147_2nd_stage && ./scripts/var_wh_laplace_600.sh
 ```
 
 For the 1st stage in FSCD-LVIS experiments:
