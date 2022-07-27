@@ -22,7 +22,6 @@ import numpy as np
 import torch
 import util.misc as utils
 import util.plot_utils as plot_utils
-from datasets.data_prefetcher import single_sample_to_cuda
 
 
 def train_one_epoch(
@@ -99,7 +98,7 @@ def evaluate(model, criterion, postprocessors, data_loader, device, output_dir):
     for ret in metric_logger.log_every(data_loader, print_freq, header):
         image = ret["image"].to(device)
         points = ret["points"].to(device)
-        target = ({"points": ret["points"].to(device), "whs": ret["whs"].to(device),},)
+        target = ({"points": ret["points"].to(device), "whs": ret["whs"].to(device)})
         outputs = model(image, points)
         loss_dict = criterion(outputs, target)
         weight_dict = criterion.weight_dict

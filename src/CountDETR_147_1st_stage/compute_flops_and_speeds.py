@@ -448,7 +448,7 @@ def get_dataset(coco_path):
 
 def warmup(model, inputs, N=10):
     for i in range(N):
-        out = model(inputs)
+        _ = model(inputs)
     torch.cuda.synchronize()
 
 
@@ -456,7 +456,7 @@ def measure_time(model, inputs, N=10):
     warmup(model, inputs)
     s = time.time()
     for i in range(N):
-        out = model(inputs)
+        _ = model(inputs)
     torch.cuda.synchronize()
     t = (time.time() - s) / N
     return t

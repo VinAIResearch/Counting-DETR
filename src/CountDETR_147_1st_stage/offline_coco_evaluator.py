@@ -7,19 +7,14 @@ import json
 import logging
 import os
 import os.path as osp
-import pickle
 from collections import OrderedDict
 
 import cv2
-import detectron2.utils.comm as comm
 import numpy as np
-import pycocotools.mask as mask_util
 import torch
-from detectron2.data import MetadataCatalog
-from detectron2.data.datasets.coco import convert_to_coco_json
 from detectron2.evaluation.evaluator import DatasetEvaluator
 from detectron2.evaluation.fast_eval_api import COCOeval_opt as COCOeval
-from detectron2.structures import Boxes, BoxMode, pairwise_iou
+from detectron2.structures import BoxMode
 from detectron2.utils.logger import create_small_table
 from fvcore.common.file_io import PathManager
 from pycocotools.coco import COCO
@@ -122,7 +117,7 @@ class COCOEvaluator(DatasetEvaluator):
             outputs: the outputs of a COCO model. It is a list of dicts with key
                 "instances" that contains :class:`Instances`.
         """
-        if self._image_set == None:
+        if self._image_set is None:
             img_ids = self.pred_coco_api.getImgIds()
         else:
             img_ids = self._image_set
@@ -298,10 +293,9 @@ class COCOEvaluator(DatasetEvaluator):
                 )
 
             res = self._derive_coco_results(
-                # coco_eval, task, class_names=self._metadata.get("thing_classes")
                 coco_eval,
                 task,
-                class_names=["fg",],
+                class_names=["fg", ]
             )
             self._results[task] = res
 
@@ -317,7 +311,7 @@ class COCOEvaluator(DatasetEvaluator):
             a dict of {metric name: score}
         """
 
-        metrics = {"bbox": ["AP", "AP50", "AP75", "APs", "APm", "APl"],}[iou_type]
+        metrics = {"bbox": ["AP", "AP50", "AP75", "APs", "APm", "APl"], }[iou_type]
 
         if coco_eval is None:
             self._logger.warn("No predictions from the model!")

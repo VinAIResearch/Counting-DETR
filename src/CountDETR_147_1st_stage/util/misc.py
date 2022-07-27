@@ -22,11 +22,9 @@ from typing import List, Optional
 
 import torch
 import torch.distributed as dist
-import torch.nn as nn
 
 # needed due to empty tensor bug in pytorch and torchvision 0.5
 import torchvision
-from packaging import version
 from torch import Tensor
 
 

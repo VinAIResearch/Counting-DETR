@@ -9,14 +9,11 @@
 # ------------------------------------------------------------------------
 import copy
 import math
-from typing import List, Optional
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 from models.row_column_decoupled_attention import MultiheadRCDA
-from torch import Tensor, nn
-from torch._C import dtype
+from torch import nn
 from util.misc import inverse_sigmoid
 
 

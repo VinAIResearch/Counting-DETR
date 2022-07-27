@@ -10,12 +10,9 @@
 """
 Backbone modules.
 """
-from collections import OrderedDict
-from typing import Dict, List
 
 import torch
 import torch.nn.functional as F
-import torchvision
 from models import resnet
 from torch import nn
 from torchvision.models._utils import IntermediateLayerGetter

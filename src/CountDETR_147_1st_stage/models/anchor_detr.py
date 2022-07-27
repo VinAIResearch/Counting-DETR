@@ -26,7 +26,6 @@ from util.misc import (
 )
 
 from .backbone import build_backbone
-from .matcher import build_matcher
 from .segmentation import DETRsegm, dice_loss, sigmoid_focal_loss
 from .transformer import build_transformer
 
@@ -374,7 +373,6 @@ class PostProcess(nn.Module):
 
 
 def build(args):
-    num_classes = 1
     device = torch.device(args.device)
 
     backbone = build_backbone(args)
@@ -383,9 +381,7 @@ def build(args):
     model = AnchorDETR(backbone, transformer, num_feature_levels=args.num_feature_levels,)
     if args.masks:
         model = DETRsegm(model, freeze_detr=(args.frozen_weights is not None))
-    # matcher = build_matcher(args)
-    # weight_dict = {'loss_ce': args.cls_loss_coef, 'loss_points': args.points_loss_coef}
-    # weight_dict['loss_wh'] = args.wh_loss_coef
+
     """
     if args.masks:
         weight_dict["loss_mask"] = args.mask_loss_coef
@@ -409,7 +405,5 @@ def build(args):
     criterion = BoundingBoxCriterion()
     criterion.to(device)
     postprocessors = {"bbox": PostProcess()}
-    if args.masks:
-        postprocessors["segm"] = PostProcessSegm()
 
     return model, criterion, postprocessors

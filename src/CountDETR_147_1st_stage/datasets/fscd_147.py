@@ -1,11 +1,9 @@
 import json
 import os
-import random
 
 import numpy as np
 from PIL import Image
 from pycocotools.coco import COCO
-from torch import dtype
 from torch.utils.data import Dataset
 from torchvision import transforms as transforms
 
