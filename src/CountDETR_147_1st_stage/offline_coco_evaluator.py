@@ -5,26 +5,26 @@ import io
 import itertools
 import json
 import logging
-import numpy as np
 import os
+import os.path as osp
 import pickle
 from collections import OrderedDict
+
+import cv2
+import detectron2.utils.comm as comm
+import numpy as np
 import pycocotools.mask as mask_util
 import torch
+from detectron2.data import MetadataCatalog
+from detectron2.data.datasets.coco import convert_to_coco_json
+from detectron2.evaluation.evaluator import DatasetEvaluator
+from detectron2.evaluation.fast_eval_api import COCOeval_opt as COCOeval
+from detectron2.structures import Boxes, BoxMode, pairwise_iou
+from detectron2.utils.logger import create_small_table
 from fvcore.common.file_io import PathManager
 from pycocotools.coco import COCO
 from tabulate import tabulate
 
-import detectron2.utils.comm as comm
-from detectron2.data import MetadataCatalog
-from detectron2.data.datasets.coco import convert_to_coco_json
-from detectron2.evaluation.fast_eval_api import COCOeval_opt as COCOeval
-from detectron2.structures import Boxes, BoxMode, pairwise_iou
-from detectron2.utils.logger import create_small_table
-
-from detectron2.evaluation.evaluator import DatasetEvaluator
-import os.path as osp
-import cv2
 
 class COCOEvaluator(DatasetEvaluator):
     """
@@ -37,7 +37,9 @@ class COCOEvaluator(DatasetEvaluator):
     instance segmentation, or keypoint detection dataset.
     """
 
-    def __init__(self, gt_json_file, pred_json_file, counting_gt_json_path, image_set=None, visualize_res=False, output_dir=None):
+    def __init__(
+        self, gt_json_file, pred_json_file, counting_gt_json_path, image_set=None, visualize_res=False, output_dir=None
+    ):
         """
         Args:
             dataset_name (str): name of the dataset to be evaluated.
@@ -59,7 +61,9 @@ class COCOEvaluator(DatasetEvaluator):
                 2. "coco_instances_results.json" a json file in COCO's result
                    format.
         """
-        self._tasks = ["bbox", ]
+        self._tasks = [
+            "bbox",
+        ]
         self._output_dir = output_dir
 
         self._cpu_device = torch.device("cpu")
@@ -88,7 +92,7 @@ class COCOEvaluator(DatasetEvaluator):
 
         with open(counting_gt_json_path) as f:
             self.point_annos = json.load(f)
-        
+
         # Test set json files do not contain annotations (evaluation must be
         # performed using the COCO evaluation server).
         self._do_evaluation = "annotations" in self._coco_api.dataset
@@ -109,7 +113,7 @@ class COCOEvaluator(DatasetEvaluator):
             tasks = tasks + ("keypoints",)
         return tasks
 
-    def process(self, ):
+    def process(self,):
         """
         Args:
             inputs: the inputs to a COCO model (e.g., GeneralizedRCNN).
@@ -118,7 +122,7 @@ class COCOEvaluator(DatasetEvaluator):
             outputs: the outputs of a COCO model. It is a list of dicts with key
                 "instances" that contains :class:`Instances`.
         """
-        if self._image_set ==None:
+        if self._image_set == None:
             img_ids = self.pred_coco_api.getImgIds()
         else:
             img_ids = self._image_set
@@ -135,7 +139,7 @@ class COCOEvaluator(DatasetEvaluator):
             for anno in annos:
                 box = anno["bbox"]
                 cen_x, cen_y, w, h = box
-                new_box = [cen_x - w/2, cen_y - h/2, w, h]
+                new_box = [cen_x - w / 2, cen_y - h / 2, w, h]
                 result = {
                     "image_id": anno["image_id"],
                     "category_id": anno["category_id"],
@@ -153,83 +157,82 @@ class COCOEvaluator(DatasetEvaluator):
                     pred_x, pred_y, pred_w, pred_h = int(pred_x), int(pred_y), int(pred_w), int(pred_h)
 
                     cen_x, cen_y, w, h = pred_box
-                    new_box = [cen_x - w/2, cen_y - h/2, w, h]
+                    new_box = [cen_x - w / 2, cen_y - h / 2, w, h]
                     pred_x, pred_y, pred_w, pred_h = new_box
                     pred_x, pred_y, pred_w, pred_h = int(pred_x), int(pred_y), int(pred_w), int(pred_h)
-                    pred_boxes.append([pred_x, pred_y, pred_x+pred_w,pred_y+ pred_h])
-                    img = cv2.rectangle(img, (pred_x, pred_y), (pred_x+pred_w, pred_y+pred_h), (0, 255, 0), 2)
+                    pred_boxes.append([pred_x, pred_y, pred_x + pred_w, pred_y + pred_h])
+                    img = cv2.rectangle(img, (pred_x, pred_y), (pred_x + pred_w, pred_y + pred_h), (0, 255, 0), 2)
                 gt_boxes = []
                 gt_anno_ids = self._coco_api.getAnnIds([img_id])
                 gt_annos = self._coco_api.loadAnns(gt_anno_ids)
                 for gt_anno in gt_annos:
-                    gt_box = gt_anno["bbox"] 
+                    gt_box = gt_anno["bbox"]
                     gt_x, gt_y, gt_w, gt_h = gt_box
-                    gt_boxes.append([gt_x, gt_y, gt_x+gt_w, gt_y+ gt_h])
-                    img = cv2.rectangle(img, (gt_x, gt_y), (gt_x+gt_w, gt_y+gt_h), (255, 0, 0), 2)
+                    gt_boxes.append([gt_x, gt_y, gt_x + gt_w, gt_y + gt_h])
+                    img = cv2.rectangle(img, (gt_x, gt_y), (gt_x + gt_w, gt_y + gt_h), (255, 0, 0), 2)
                 vis_img_path = os.path.join("vis_res", img_name)
                 cv2.imwrite(vis_img_path, img)
-            #     pred_boxes = np.array(pred_boxes)
-            #     gt_boxes = np.array(gt_boxes)
-            #     ious = boxes_iou(pred_boxes, gt_boxes)
-            #     row_ind, col_ind = linear_sum_assignment(1 - ious) 
-            #     iou_threshold = 0.5
-            #     tp = int((ious[row_ind, col_ind] > iou_t
-            # 1hreshold).sum())
-            #     fp = len(pred_boxes) - tp
-            #     fn = len(gt_boxes) - tp
-            #     precision = tp/(tp+fp)
-            #     recall = tp/(tp+fn)
+                #     pred_boxes = np.array(pred_boxes)
+                #     gt_boxes = np.array(gt_boxes)
+                #     ious = boxes_iou(pred_boxes, gt_boxes)
+                #     row_ind, col_ind = linear_sum_assignment(1 - ious)
+                #     iou_threshold = 0.5
+                #     tp = int((ious[row_ind, col_ind] > iou_t
+                # 1hreshold).sum())
+                #     fp = len(pred_boxes) - tp
+                #     fn = len(gt_boxes) - tp
+                #     precision = tp/(tp+fp)
+                #     recall = tp/(tp+fn)
 
-            #     print(tp, fp, fn, precision, recall)
-            #     nd = len(pred_boxes)
-            #     tp = np.zeros(nd)
-            #     fp = np.zeros(nd)
-            #     BBGT = np.array(gt_boxes)
-            #     used_boxes = np.zeros(len(BBGT))
-            #     for d, bb in enumerate(pred_boxes):
-            #         ixmin = np.maximum(BBGT[:, 0], bb[0])
-            #         iymin = np.maximum(BBGT[:, 1], bb[1])
-            #         ixmax = np.minimum(BBGT[:, 2], bb[2])
-            #         iymax = np.minimum(BBGT[:, 3], bb[3])
-            #         iw = np.maximum(ixmax - ixmin + 1.0, 0.0)
-            #         ih = np.maximum(iymax - iymin + 1.0, 0.0)
-            #         inters = iw * ih
+                #     print(tp, fp, fn, precision, recall)
+                #     nd = len(pred_boxes)
+                #     tp = np.zeros(nd)
+                #     fp = np.zeros(nd)
+                #     BBGT = np.array(gt_boxes)
+                #     used_boxes = np.zeros(len(BBGT))
+                #     for d, bb in enumerate(pred_boxes):
+                #         ixmin = np.maximum(BBGT[:, 0], bb[0])
+                #         iymin = np.maximum(BBGT[:, 1], bb[1])
+                #         ixmax = np.minimum(BBGT[:, 2], bb[2])
+                #         iymax = np.minimum(BBGT[:, 3], bb[3])
+                #         iw = np.maximum(ixmax - ixmin + 1.0, 0.0)
+                #         ih = np.maximum(iymax - iymin + 1.0, 0.0)
+                #         inters = iw * ih
 
-            #         # union
-            #         uni = (
-            #             (bb[2] - bb[0] + 1.0) * (bb[3] - bb[1] + 1.0)
-            #             + (BBGT[:, 2] - BBGT[:, 0] + 1.0) * (BBGT[:, 3] - BBGT[:, 1] + 1.0)
-            #             - inters
-            #         )
+                #         # union
+                #         uni = (
+                #             (bb[2] - bb[0] + 1.0) * (bb[3] - bb[1] + 1.0)
+                #             + (BBGT[:, 2] - BBGT[:, 0] + 1.0) * (BBGT[:, 3] - BBGT[:, 1] + 1.0)
+                #             - inters
+                #         )
 
-            #         overlaps = inters / uni
-            #         ovmax = np.max(overlaps)
-            #         jmax = np.argmax(overlaps)
-            #         print(ovmax)
-            #         if ovmax > iou_threshold:
-            #             if not used_boxes[jmax]:
-            #                 tp[d] = 1.0
-            #                 used_boxes[jmax] = 1
-            #             else:
-            #                 fp[d] = 1.0
-            #     npos = len(gt_boxes)
-            #     fp = np.cumsum(fp)
-            #     tp = np.cumsum(tp)
-            #     rec = tp / float(npos)
-            #     # avoid divide by zero in case the first detection matches a difficult
-            #     # ground truth
-            #     print(tp)
-            #     prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
-            #     ap = voc_ap(rec, prec)
-            #     print(prec)
-            #     print("ap", ap)
-
+                #         overlaps = inters / uni
+                #         ovmax = np.max(overlaps)
+                #         jmax = np.argmax(overlaps)
+                #         print(ovmax)
+                #         if ovmax > iou_threshold:
+                #             if not used_boxes[jmax]:
+                #                 tp[d] = 1.0
+                #                 used_boxes[jmax] = 1
+                #             else:
+                #                 fp[d] = 1.0
+                #     npos = len(gt_boxes)
+                #     fp = np.cumsum(fp)
+                #     tp = np.cumsum(tp)
+                #     rec = tp / float(npos)
+                #     # avoid divide by zero in case the first detection matches a difficult
+                #     # ground truth
+                #     print(tp)
+                #     prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
+                #     ap = voc_ap(rec, prec)
+                #     print(prec)
+                #     print("ap", ap)
 
                 output_path = osp.join("vis_res", img_name)
                 cv2.imwrite(output_path, img)
             prediction["instances"] = results
             self._predictions.append(prediction)
-            self.counting_dict[img_id] = {"gt": len(point_anno), "pred": num_pred} 
+            self.counting_dict[img_id] = {"gt": len(point_anno), "pred": num_pred}
 
     def evaluate(self):
         predictions = self._predictions
@@ -256,8 +259,8 @@ class COCOEvaluator(DatasetEvaluator):
             cnt = cnt + 1
             err = abs(gt_cnt - pred_cnt)
             SAE += err
-            SSE += err**2
-        print(cnt, SAE/cnt, (SSE/cnt)**0.5)
+            SSE += err ** 2
+        print(cnt, SAE / cnt, (SSE / cnt) ** 0.5)
         print(self._results)
         return copy.deepcopy(self._results)
 
@@ -278,29 +281,27 @@ class COCOEvaluator(DatasetEvaluator):
         if not self._do_evaluation:
             self._logger.info("Annotations are not available for evaluation.")
             return
-        
+
         self._logger.info("Evaluating predictions ...")
         for task in sorted(tasks):
             if self._image_set is not None:
                 coco_eval = (
-                    _evaluate_predictions_on_coco(
-                        self._coco_api, coco_results, task, self._image_set 
-                    )
+                    _evaluate_predictions_on_coco(self._coco_api, coco_results, task, self._image_set)
                     if len(coco_results) > 0
                     else None  # cocoapi does not handle empty results very well
                 )
             else:
                 coco_eval = (
-                    _evaluate_predictions_on_coco(
-                        self._coco_api, coco_results, task, 
-                    )
+                    _evaluate_predictions_on_coco(self._coco_api, coco_results, task,)
                     if len(coco_results) > 0
                     else None  # cocoapi does not handle empty results very well
                 )
-            
+
             res = self._derive_coco_results(
                 # coco_eval, task, class_names=self._metadata.get("thing_classes")
-                coco_eval, task, class_names=["fg", ]
+                coco_eval,
+                task,
+                class_names=["fg",],
             )
             self._results[task] = res
 
@@ -316,9 +317,7 @@ class COCOEvaluator(DatasetEvaluator):
             a dict of {metric name: score}
         """
 
-        metrics = {
-            "bbox": ["AP", "AP50", "AP75", "APs", "APm", "APl"],
-        }[iou_type]
+        metrics = {"bbox": ["AP", "AP50", "AP75", "APs", "APm", "APl"],}[iou_type]
 
         if coco_eval is None:
             self._logger.warn("No predictions from the model!")
@@ -329,9 +328,7 @@ class COCOEvaluator(DatasetEvaluator):
             metric: float(coco_eval.stats[idx] * 100 if coco_eval.stats[idx] >= 0 else "nan")
             for idx, metric in enumerate(metrics)
         }
-        self._logger.info(
-            "Evaluation results for {}: \n".format(iou_type) + create_small_table(results)
-        )
+        self._logger.info("Evaluation results for {}: \n".format(iou_type) + create_small_table(results))
         if not np.isfinite(sum(results.values())):
             self._logger.info("Some metrics cannot be computed and is shown as NaN.")
         if class_names is None or len(class_names) <= 1:
@@ -358,16 +355,13 @@ class COCOEvaluator(DatasetEvaluator):
         results_flatten = list(itertools.chain(*results_per_category))
         results_2d = itertools.zip_longest(*[results_flatten[i::N_COLS] for i in range(N_COLS)])
         table = tabulate(
-            results_2d,
-            tablefmt="pipe",
-            floatfmt=".3f",
-            headers=["category", "AP"] * (N_COLS // 2),
-            numalign="left",
+            results_2d, tablefmt="pipe", floatfmt=".3f", headers=["category", "AP"] * (N_COLS // 2), numalign="left",
         )
         self._logger.info("Per-category {} AP: \n".format(iou_type) + table)
 
         results.update({"AP-" + name: ap for name, ap in results_per_category})
         return results
+
 
 def instances_to_coco_json(instances, img_id):
     """
@@ -420,9 +414,7 @@ class COCOevalMaxDets(COCOeval):
             titleStr = "Average Precision" if ap == 1 else "Average Recall"
             typeStr = "(AP)" if ap == 1 else "(AR)"
             iouStr = (
-                "{:0.2f}:{:0.2f}".format(p.iouThrs[0], p.iouThrs[-1])
-                if iouThr is None
-                else "{:0.2f}".format(iouThr)
+                "{:0.2f}:{:0.2f}".format(p.iouThrs[0], p.iouThrs[-1]) if iouThr is None else "{:0.2f}".format(iouThr)
             )
             aind = [i for i, aRng in enumerate(p.areaRngLbl) if aRng == areaRng]
             mind = [i for i, mDet in enumerate(p.maxDets) if mDet == maxDets]
@@ -491,7 +483,10 @@ class COCOevalMaxDets(COCOeval):
     def __str__(self):
         self.summarize()
 
-def _evaluate_predictions_on_coco(coco_gt, coco_results, iou_type, img_ids=None, max_dets_per_image=None, kpt_oks_sigmas=None):
+
+def _evaluate_predictions_on_coco(
+    coco_gt, coco_results, iou_type, img_ids=None, max_dets_per_image=None, kpt_oks_sigmas=None
+):
     """
     Evaluate the coco results using COCOEval API.
     """
@@ -531,14 +526,17 @@ def _evaluate_predictions_on_coco(coco_gt, coco_results, iou_type, img_ids=None,
 
     return coco_eval
 
+
 gt_json_path = "./datasets/fscd_147/annotations/instances_test.json"
 pred_json_path = "/home/ubuntu/projects/FewX_test/FewX-master/json_tests/centerness_2.json"
 counting_json_path = "/home/ubuntu/projects/FSC_DETR/FSC147/annotation_FSC147_384.json"
 print(gt_json_path, pred_json_path, counting_json_path)
-coco_evaluator = COCOEvaluator(gt_json_file = gt_json_path, 
-                            pred_json_file = pred_json_path, 
-                            counting_gt_json_path = counting_json_path, 
-                            # image_set=[1,], 
-                            visualize_res= False)
+coco_evaluator = COCOEvaluator(
+    gt_json_file=gt_json_path,
+    pred_json_file=pred_json_path,
+    counting_gt_json_path=counting_json_path,
+    # image_set=[1,],
+    visualize_res=False,
+)
 coco_evaluator.process()
 coco_evaluator.evaluate()

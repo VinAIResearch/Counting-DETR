@@ -1,12 +1,16 @@
-import os
 import json
-from pycocotools.coco import COCO
-import numpy as np
-import cv2
+import os
 import random as rd
 
-for split in ["test", ]:
-    JSON_PATH = "./FSCD_LVIS/instances_"+split+".json"
+import cv2
+import numpy as np
+from pycocotools.coco import COCO
+
+
+for split in [
+    "test",
+]:
+    JSON_PATH = "./FSCD_LVIS/instances_" + split + ".json"
     with open(JSON_PATH, "r") as handle:
         contents = json.load(handle)
     coco_api = COCO(JSON_PATH)
@@ -26,8 +30,8 @@ for split in ["test", ]:
             segmentations = anno["segmentation"]
             num_points = int(len(segmentations[0]) / 2)
             for i in range(num_points):
-                x = int(segmentations[0][2*i])
-                y = int(segmentations[0][2*i+1])
+                x = int(segmentations[0][2 * i])
+                y = int(segmentations[0][2 * i + 1])
                 points.append([x, y])
             current_contour = np.array(points)
             current_contour = np.reshape(current_contour, (num_points, 1, 2))
@@ -38,8 +42,8 @@ for split in ["test", ]:
             except Exception as e:
                 xs, ys = [], []
                 for i in range(num_points):
-                    x = segmentations[0][2*i]
-                    y = segmentations[0][2*i+1]
+                    x = segmentations[0][2 * i]
+                    y = segmentations[0][2 * i + 1]
                     xs.append(x)
                     ys.append(y)
                 cX = np.mean(np.array(xs))
@@ -51,11 +55,7 @@ for split in ["test", ]:
             all_points.append(center_point)
             all_boxes.append(box)
         exemplar_boxes = rd.sample(all_boxes, 5)
-        img_anno = {
-            "image_id":image_id,
-            "points" : all_points,
-            "exemplars_boxes" : exemplar_boxes
-        }
+        img_anno = {"image_id": image_id, "points": all_points, "exemplars_boxes": exemplar_boxes}
         box_point_dict["annotations"].append(img_anno)
     with open("./FSCD_LVIS/counting_points_boxes_" + split + ".json", "w") as handle:
         json.dump(box_point_dict, handle)

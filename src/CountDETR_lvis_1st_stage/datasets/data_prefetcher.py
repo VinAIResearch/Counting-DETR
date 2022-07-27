@@ -7,22 +7,25 @@
 
 import torch
 
+
 def single_sample_to_cuda(sample, target, device):
     samples = {k: v.to(device, non_blocking=True) for k, v in sample.items()}
     targets = {k: v.to(device, non_blocking=True) for k, v in target.items()}
     return samples, targets
+
 
 def to_cuda(samples, targets, device):
     samples = [{k: v.to(device, non_blocking=True) for k, v in t.items()} for t in samples]
     targets = [{k: v.to(device, non_blocking=True) for k, v in t.items()} for t in targets]
     return samples, targets
 
-class data_prefetcher():
+
+class data_prefetcher:
     def __init__(self, loader, device, prefetch=True):
         self.loader = iter(loader)
         self.prefetch = prefetch
         self.device = device
-        if prefetch and self.device=='cuda':
+        if prefetch and self.device == "cuda":
             self.stream = torch.cuda.Stream()
             self.preload()
 
@@ -55,7 +58,7 @@ class data_prefetcher():
             # else:
 
     def next(self):
-        if self.prefetch and self.device=='cuda':
+        if self.prefetch and self.device == "cuda":
             torch.cuda.current_stream().wait_stream(self.stream)
             samples = self.next_samples
             targets = self.next_targets

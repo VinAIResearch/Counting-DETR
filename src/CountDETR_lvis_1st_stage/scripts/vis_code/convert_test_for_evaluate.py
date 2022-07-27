@@ -1,6 +1,7 @@
 import json
 import os
 
+
 ori_path = "./FSCD_LVIS/instances_test.json"
 ori_test = json.load(open(ori_path, "r"))
 new_test = ori_test.copy()

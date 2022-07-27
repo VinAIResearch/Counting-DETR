@@ -1,28 +1,28 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+import argparse
 import contextlib
 import copy
 import io
 import itertools
 import json
 import logging
-import numpy as np
 import os
+import os.path as osp
+import pickle as pkl
 from collections import OrderedDict
+
+import cv2
+import numpy as np
 import torch
+from detectron2.data.datasets.coco import convert_to_coco_json
+from detectron2.evaluation.evaluator import DatasetEvaluator
+from detectron2.evaluation.fast_eval_api import COCOeval_opt as COCOeval
+from detectron2.structures import Boxes, BoxMode, pairwise_iou
+from detectron2.utils.logger import create_small_table
 from fvcore.common.file_io import PathManager
 from pycocotools.coco import COCO
 from tabulate import tabulate
 
-from detectron2.data.datasets.coco import convert_to_coco_json
-from detectron2.evaluation.fast_eval_api import COCOeval_opt as COCOeval
-from detectron2.structures import Boxes, BoxMode, pairwise_iou
-from detectron2.utils.logger import create_small_table
-
-from detectron2.evaluation.evaluator import DatasetEvaluator
-import os.path as osp
-import cv2
-import argparse
-import pickle as pkl
 
 def cal_ap(rec, prec):
     # first append sentinel values at the end
@@ -41,6 +41,7 @@ def cal_ap(rec, prec):
     ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
     return ap
 
+
 def intersection_over_union(boxes_1, boxes_2):
     x_min = np.minimum(boxes_1[0], boxes_2[0])
     y_min = np.minimum(boxes_1[1], boxes_2[1])
@@ -58,9 +59,8 @@ def intersection_over_union(boxes_1, boxes_2):
     overlaps = inters / unions
     return overlaps
 
-def single_image_mean_average_precision(
-    preds, gts, iou_threshold=0.5
-):
+
+def single_image_mean_average_precision(preds, gts, iou_threshold=0.5):
     """
     Calculates mean average precision 
     Parameters:
@@ -88,16 +88,15 @@ def single_image_mean_average_precision(
     TP = np.zeros(len(detections))
     FP = np.zeros(len(detections))
     total_true_bboxes = len(ground_truths)
-    
-    
+
     gt_boxes = [gt["bbox"] for gt in ground_truths]
     gt_boxes = np.array(gt_boxes)
-    gt_boxes[:, 2] += gt_boxes[:, 0] 
+    gt_boxes[:, 2] += gt_boxes[:, 0]
     gt_boxes[:, 3] += gt_boxes[:, 1]
 
     pred_boxes = [pred["bbox"] for pred in detections]
     pred_boxes = np.array(pred_boxes)
-    pred_boxes[:, 2] += pred_boxes[:, 0] 
+    pred_boxes[:, 2] += pred_boxes[:, 0]
     pred_boxes[:, 3] += pred_boxes[:, 1]
     gt_index = np.zeros(gt_boxes.shape[0], dtype=np.int16)
 
@@ -107,10 +106,7 @@ def single_image_mean_average_precision(
         best_iou = 0
 
         for idx, gt_box in enumerate(gt_boxes):
-            iou = intersection_over_union(
-                np.array(pred_box),
-                np.array(gt_box),
-            )
+            iou = intersection_over_union(np.array(pred_box), np.array(gt_box),)
 
             if iou > best_iou:
                 best_iou = iou
@@ -132,9 +128,10 @@ def single_image_mean_average_precision(
     TP_cumsum = np.cumsum(TP)
     FP_cumsum = np.cumsum(FP)
     recalls = TP_cumsum / (total_true_bboxes + epsilon)
-    precisions = TP_cumsum /(TP_cumsum + FP_cumsum + epsilon)
+    precisions = TP_cumsum / (TP_cumsum + FP_cumsum + epsilon)
     ap = cal_ap(recalls, precisions)
     return ap
+
 
 class COCOEvaluator(DatasetEvaluator):
     """
@@ -147,7 +144,9 @@ class COCOEvaluator(DatasetEvaluator):
     instance segmentation, or keypoint detection dataset.
     """
 
-    def __init__(self, gt_json_file, pred_json_file, counting_gt_json_path, image_set=None, visualize_res=False, output_dir=None):
+    def __init__(
+        self, gt_json_file, pred_json_file, counting_gt_json_path, image_set=None, visualize_res=False, output_dir=None
+    ):
         """
         Args:
             dataset_name (str): name of the dataset to be evaluated.
@@ -169,7 +168,9 @@ class COCOEvaluator(DatasetEvaluator):
                 2. "coco_instances_results.json" a json file in COCO's result
                    format.
         """
-        self._tasks = ["bbox", ]
+        self._tasks = [
+            "bbox",
+        ]
         self._output_dir = output_dir
 
         self._cpu_device = torch.device("cpu")
@@ -198,7 +199,7 @@ class COCOEvaluator(DatasetEvaluator):
 
         with open(counting_gt_json_path) as f:
             self.point_annos = json.load(f)
-        
+
         # Test set json files do not contain annotations (evaluation must be
         # performed using the COCO evaluation server).
         self._do_evaluation = "annotations" in self._coco_api.dataset
@@ -220,7 +221,7 @@ class COCOEvaluator(DatasetEvaluator):
             tasks = tasks + ("segm",)
         return tasks
 
-    def process(self, ):
+    def process(self,):
         """
         Args:
             inputs: the inputs to a COCO model (e.g., GeneralizedRCNN).
@@ -229,7 +230,7 @@ class COCOEvaluator(DatasetEvaluator):
             outputs: the outputs of a COCO model. It is a list of dicts with key
                 "instances" that contains :class:`Instances`.
         """
-        if self._image_set ==None:
+        if self._image_set == None:
             img_ids = self.pred_coco_api.getImgIds()
         else:
             img_ids = self._image_set
@@ -247,7 +248,7 @@ class COCOEvaluator(DatasetEvaluator):
             for anno in pred_annos:
                 box = anno["bbox"]
                 x_cen, y_cen, w, h = box
-                xmin, ymin, = x_cen - w/2, y_cen - h/2
+                xmin, ymin, = x_cen - w / 2, y_cen - h / 2
                 new_box = [int(xmin), int(ymin), int(w), int(h)]
 
                 result = {
@@ -257,7 +258,7 @@ class COCOEvaluator(DatasetEvaluator):
                     "score": anno["score"],
                 }
                 results.append(result)
-    
+
             gt_anno_ids = self._coco_api.getAnnIds([img_id])
             gt_annos = self._coco_api.loadAnns(gt_anno_ids)
             ap = single_image_mean_average_precision(results, gt_annos)
@@ -265,7 +266,7 @@ class COCOEvaluator(DatasetEvaluator):
             if self.visualize_res:
                 height, width, channels = img.shape
                 height = 25 * len(pred_annos) + 10
-                score_img = np.zeros((height,width,3), np.uint8)
+                score_img = np.zeros((height, width, 3), np.uint8)
                 score_img[:] = 255
                 if "points" in img_info[0].keys():
                     sampled_points = img_info[0]["points"]
@@ -281,7 +282,7 @@ class COCOEvaluator(DatasetEvaluator):
                     pred_box = pred_anno["bbox"]
 
                     x_cen, y_cen, w, h = pred_box
-                    xmin, ymin, = x_cen - w/2, y_cen - h/2
+                    xmin, ymin, = x_cen - w / 2, y_cen - h / 2
                     x_cen, y_cen = int(x_cen), int(y_cen)
                     pred_box = [int(xmin), int(ymin), int(w), int(h)]
 
@@ -291,41 +292,39 @@ class COCOEvaluator(DatasetEvaluator):
                     pred_x, pred_y, pred_w, pred_h = int(pred_x), int(pred_y), int(pred_w), int(pred_h)
                     # pred_point = pred_anno["point"]
                     # img = cv2.circle(img, (pred_point[0], pred_point[1]), 5,  (255, 255, 0), 1)
-                    img = cv2.rectangle(img, (pred_x, pred_y), (pred_x+pred_w, pred_y+pred_h), (0, 255, 0), 1)
-                    img = cv2.putText(img, str(idx), (x_cen, y_cen), font, 
-                                fontScale, color, thickness, cv2.LINE_AA)
-                    img = cv2.circle(img, (x_cen, y_cen), 3,  (0, 0, 255), 1)
+                    img = cv2.rectangle(img, (pred_x, pred_y), (pred_x + pred_w, pred_y + pred_h), (0, 255, 0), 1)
+                    img = cv2.putText(img, str(idx), (x_cen, y_cen), font, fontScale, color, thickness, cv2.LINE_AA)
+                    img = cv2.circle(img, (x_cen, y_cen), 3, (0, 0, 255), 1)
                     score = pred_anno["score"]
                     write_str = str(idx) + "__" + str(score)
-                    org = (5, (idx+1) * 25 + 2)
-                    
-                    score_img = cv2.putText(score_img, write_str, org, font, 
-                                fontScale, color, thickness, cv2.LINE_AA)
+                    org = (5, (idx + 1) * 25 + 2)
+
+                    score_img = cv2.putText(score_img, write_str, org, font, fontScale, color, thickness, cv2.LINE_AA)
 
                 gt_boxes = []
                 gt_anno_ids = self._coco_api.getAnnIds([img_id])
                 gt_annos = self._coco_api.loadAnns(gt_anno_ids)
 
                 for gt_anno in gt_annos:
-                    gt_box = gt_anno["bbox"] 
+                    gt_box = gt_anno["bbox"]
                     gt_x, gt_y, gt_w, gt_h = gt_box
-                    gt_boxes.append([gt_x, gt_y, gt_x+gt_w, gt_y+ gt_h])
-                    img = cv2.rectangle(img, (gt_x, gt_y), (gt_x+gt_w, gt_y+gt_h), (255, 0, 0), 1)
+                    gt_boxes.append([gt_x, gt_y, gt_x + gt_w, gt_y + gt_h])
+                    img = cv2.rectangle(img, (gt_x, gt_y), (gt_x + gt_w, gt_y + gt_h), (255, 0, 0), 1)
                 vis_img_path = os.path.join(self._vis_dir, img_name)
                 img = cv2.vconcat([img, score_img])
                 cv2.imwrite(vis_img_path, img)
-                
+
             info = {
-                "img_name": img_name, 
+                "img_name": img_name,
                 "img_id": img_id,
                 "ap": ap,
-                "count_gt": len(point_anno), 
-                "count_pred": num_pred, 
+                "count_gt": len(point_anno),
+                "count_pred": num_pred,
             }
             self.aps.append(info)
             prediction["instances"] = results
             self._predictions.append(prediction)
-            self.counting_dict[img_id] = {"gt": len(point_anno), "pred": num_pred} 
+            self.counting_dict[img_id] = {"gt": len(point_anno), "pred": num_pred}
 
     def evaluate(self):
         predictions = self._predictions
@@ -347,8 +346,8 @@ class COCOEvaluator(DatasetEvaluator):
             cnt = cnt + 1
             err = abs(gt_cnt - pred_cnt)
             SAE += err
-            SSE += err**2
-        print(cnt, SAE/cnt, (SSE/cnt)**0.5)
+            SSE += err ** 2
+        print(cnt, SAE / cnt, (SSE / cnt) ** 0.5)
         print(self._results)
         output_path = osp.join(self._output_dir, "each_img_infor.pkl")
         print("save to {}".format(output_path))
@@ -368,29 +367,27 @@ class COCOEvaluator(DatasetEvaluator):
         if not self._do_evaluation:
             self._logger.info("Annotations are not available for evaluation.")
             return
-        
+
         self._logger.info("Evaluating predictions ...")
         for task in sorted(tasks):
             if self._image_set is not None:
                 coco_eval = (
-                    _evaluate_predictions_on_coco(
-                        self._coco_api, coco_results, task, self._image_set 
-                    )
+                    _evaluate_predictions_on_coco(self._coco_api, coco_results, task, self._image_set)
                     if len(coco_results) > 0
                     else None  # cocoapi does not handle empty results very well
                 )
             else:
                 coco_eval = (
-                    _evaluate_predictions_on_coco(
-                        self._coco_api, coco_results, task, 
-                    )
+                    _evaluate_predictions_on_coco(self._coco_api, coco_results, task,)
                     if len(coco_results) > 0
                     else None  # cocoapi does not handle empty results very well
                 )
-            
+
             res = self._derive_coco_results(
                 # coco_eval, task, class_names=self._metadata.get("thing_classes")
-                coco_eval, task, class_names=["fg", ]
+                coco_eval,
+                task,
+                class_names=["fg",],
             )
             self._results[task] = res
 
@@ -406,9 +403,7 @@ class COCOEvaluator(DatasetEvaluator):
             a dict of {metric name: score}
         """
 
-        metrics = {
-            "bbox": ["AP", "AP50", "AP75", "APs", "APm", "APl"],
-        }[iou_type]
+        metrics = {"bbox": ["AP", "AP50", "AP75", "APs", "APm", "APl"],}[iou_type]
 
         if coco_eval is None:
             self._logger.warn("No predictions from the model!")
@@ -419,9 +414,7 @@ class COCOEvaluator(DatasetEvaluator):
             metric: float(coco_eval.stats[idx] * 100 if coco_eval.stats[idx] >= 0 else "nan")
             for idx, metric in enumerate(metrics)
         }
-        self._logger.info(
-            "Evaluation results for {}: \n".format(iou_type) + create_small_table(results)
-        )
+        self._logger.info("Evaluation results for {}: \n".format(iou_type) + create_small_table(results))
         if not np.isfinite(sum(results.values())):
             self._logger.info("Some metrics cannot be computed and is shown as NaN.")
         if class_names is None or len(class_names) <= 1:
@@ -448,16 +441,13 @@ class COCOEvaluator(DatasetEvaluator):
         results_flatten = list(itertools.chain(*results_per_category))
         results_2d = itertools.zip_longest(*[results_flatten[i::N_COLS] for i in range(N_COLS)])
         table = tabulate(
-            results_2d,
-            tablefmt="pipe",
-            floatfmt=".3f",
-            headers=["category", "AP"] * (N_COLS // 2),
-            numalign="left",
+            results_2d, tablefmt="pipe", floatfmt=".3f", headers=["category", "AP"] * (N_COLS // 2), numalign="left",
         )
         self._logger.info("Per-category {} AP: \n".format(iou_type) + table)
 
         results.update({"AP-" + name: ap for name, ap in results_per_category})
         return results
+
 
 def instances_to_coco_json(instances, img_id):
     """
@@ -510,9 +500,7 @@ class COCOevalMaxDets(COCOeval):
             titleStr = "Average Precision" if ap == 1 else "Average Recall"
             typeStr = "(AP)" if ap == 1 else "(AR)"
             iouStr = (
-                "{:0.2f}:{:0.2f}".format(p.iouThrs[0], p.iouThrs[-1])
-                if iouThr is None
-                else "{:0.2f}".format(iouThr)
+                "{:0.2f}:{:0.2f}".format(p.iouThrs[0], p.iouThrs[-1]) if iouThr is None else "{:0.2f}".format(iouThr)
             )
             aind = [i for i, aRng in enumerate(p.areaRngLbl) if aRng == areaRng]
             mind = [i for i, mDet in enumerate(p.maxDets) if mDet == maxDets]
@@ -581,7 +569,10 @@ class COCOevalMaxDets(COCOeval):
     def __str__(self):
         self.summarize()
 
-def _evaluate_predictions_on_coco(coco_gt, coco_results, iou_type, img_ids=None, max_dets_per_image=None, kpt_oks_sigmas=None):
+
+def _evaluate_predictions_on_coco(
+    coco_gt, coco_results, iou_type, img_ids=None, max_dets_per_image=None, kpt_oks_sigmas=None
+):
     """
     Evaluate the coco results using COCOEval API.
     """
@@ -618,18 +609,20 @@ def _evaluate_predictions_on_coco(coco_gt, coco_results, iou_type, img_ids=None,
     coco_eval.evaluate()
     coco_eval.accumulate()
     coco_eval.summarize()
-    
+
     return coco_eval
 
+
 def get_args_parser():
-    parser = argparse.ArgumentParser('AnchorDETR Detector', add_help=False)
-    parser.add_argument('--gt_json_path', default="./FSC147/instances_test.json", type=str)
-    parser.add_argument('-p', '--pred_json_path', default="./outputs/fscd_147_base/predictions.json", type=str)
-    parser.add_argument('--counting_json_path', default="./FSC147/annotation_FSC147_384.json", type=str)
-    parser.add_argument('-o', '--output_dir', default="./outputs/fscd_147_base/", type=str)
+    parser = argparse.ArgumentParser("AnchorDETR Detector", add_help=False)
+    parser.add_argument("--gt_json_path", default="./FSC147/instances_test.json", type=str)
+    parser.add_argument("-p", "--pred_json_path", default="./outputs/fscd_147_base/predictions.json", type=str)
+    parser.add_argument("--counting_json_path", default="./FSC147/annotation_FSC147_384.json", type=str)
+    parser.add_argument("-o", "--output_dir", default="./outputs/fscd_147_base/", type=str)
 
     args = parser.parse_args()
     return args
+
 
 if __name__ == "__main__":
     args = get_args_parser()
@@ -637,10 +630,12 @@ if __name__ == "__main__":
     pred_json_path = args.pred_json_path
     counting_json_path = args.counting_json_path
     output_dir = args.output_dir
-    coco_evaluator = COCOEvaluator(gt_json_file = gt_json_path, 
-                            pred_json_file = pred_json_path, 
-                            counting_gt_json_path = counting_json_path,
-                            output_dir=output_dir,  
-                            visualize_res= True)
+    coco_evaluator = COCOEvaluator(
+        gt_json_file=gt_json_path,
+        pred_json_file=pred_json_path,
+        counting_gt_json_path=counting_json_path,
+        output_dir=output_dir,
+        visualize_res=True,
+    )
     coco_evaluator.process()
     coco_evaluator.evaluate()

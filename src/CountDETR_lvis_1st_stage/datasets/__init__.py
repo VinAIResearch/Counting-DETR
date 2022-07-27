@@ -8,8 +8,9 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 # ------------------------------------------------------------------------
 
-from .fscd_147 import build_fscd_147, build_fscd_147_points, build_fscd_test 
+from .fscd_147 import build_fscd_147, build_fscd_147_points, build_fscd_test
 from .fscd_lvis import build_fscd_lvis, build_fscd_lvis_points, build_fscd_lvis_test
+
 
 def build_dataset(image_set, args):
     if image_set == "test":
@@ -19,5 +20,4 @@ def build_dataset(image_set, args):
     elif args.dataset_file == "fscd_lvis_point":
         return build_fscd_lvis_points(args, image_set)
     else:
-        raise ValueError(f'dataset {args.dataset_file} not supported')
-    
+        raise ValueError(f"dataset {args.dataset_file} not supported")

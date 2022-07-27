@@ -1,15 +1,17 @@
+import json
 import os
 from os.path import join
-import json
-from pycocotools.coco import COCO
+
+import cv2
 import numpy as np
 from numpy.linalg import norm
+from pycocotools.coco import COCO
 from scipy.ndimage.filters import gaussian_filter
-import cv2 
+
 
 data_folder = "./FSCD_LVIS/"
 for split in ["train", "val"]:
-    json_path = join(data_folder, "split_point_and_box_" +split+ ".json")
+    json_path = join(data_folder, "split_point_and_box_" + split + ".json")
     contents = json.load(open(json_path, "r"))
     annos = contents["annotations"]
     images = contents["images"]
@@ -24,7 +26,7 @@ for split in ["train", "val"]:
         for i, first_point in enumerate(points):
             min_dist = 100.0
             for j, second_point in enumerate(points):
-                if j==i:
+                if j == i:
                     continue
                 dist = norm(first_point - second_point)
                 if dist < min_dist:

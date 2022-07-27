@@ -16,10 +16,10 @@ from collections import defaultdict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from PIL import Image
-
 import util.box_ops as box_ops
+from PIL import Image
 from util.misc import NestedTensor, interpolate, nested_tensor_from_tensor_list
+
 
 class DETRsegm(nn.Module):
     def __init__(self, detr, freeze_detr=False):
@@ -52,7 +52,9 @@ class DETRsegm(nn.Module):
         # FIXME h_boxes takes the last one computed, keep this in mind
         bbox_mask = self.bbox_attention(hs[-1], memory, mask=mask)
 
-        seg_masks = self.mask_head(src_proj, bbox_mask, [features[2].tensors, features[1].tensors, features[0].tensors])
+        seg_masks = self.mask_head(
+            src_proj, bbox_mask, [features[2].tensors, features[1].tensors, features[0].tensors]
+        )
         outputs_seg_masks = seg_masks.view(bs, self.detr.num_queries, seg_masks.shape[-2], seg_masks.shape[-1])
 
         out["pred_masks"] = outputs_seg_masks

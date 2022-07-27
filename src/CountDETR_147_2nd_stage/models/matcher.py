@@ -5,14 +5,12 @@
 import torch
 from scipy.optimize import linear_sum_assignment
 from torch import nn
-from util.box_ops import generalized_box_iou, box_cxcywh_to_xyxy
+from util.box_ops import box_cxcywh_to_xyxy, generalized_box_iou
+
 
 class HungarianMatcher(nn.Module):
+    def __init__(self, cost_class: float = 1.0, cost_points: float = 1.0):
 
-    def __init__(self,
-                 cost_class: float = 1.,
-                 cost_points: float = 1.):
-        
         """Create the matcher
         Params:
         cost_class: Class weight
@@ -21,8 +19,8 @@ class HungarianMatcher(nn.Module):
         super().__init__()
         self.cost_class = cost_class
         self.cost_points = cost_points
-    
-    def forward(self,outputs,targets):
+
+    def forward(self, outputs, targets):
         """Matching pipeline
 
         Args:
@@ -40,95 +38,104 @@ class HungarianMatcher(nn.Module):
 
         """
         with torch.no_grad():
-            bs, num_queries = outputs['pred_logits'].shape[:2]
+            bs, num_queries = outputs["pred_logits"].shape[:2]
             # Flatten to compute cost matrix of the batch
             out_prob = outputs["pred_logits"].flatten(0, 1).sigmoid()
-            out_points = outputs["pred_points"].flatten(0,1) #[batch_size * num_queries, 2]
+            out_points = outputs["pred_points"].flatten(0, 1)  # [batch_size * num_queries, 2]
 
             # Also concat target labels and points
             tgt_ids = torch.cat([v["labels"] for v in targets])
-            tgt_points = torch.cat([v["points"] for v in targets]) #[batch_size*num_targets,2]
+            tgt_points = torch.cat([v["points"] for v in targets])  # [batch_size*num_targets,2]
             # Compute the classification loss
             alpha = 0.25
             gamma = 2.0
             neg_cost_class = (1 - alpha) * (out_prob ** gamma) * (-(1 - out_prob + 1e-8).log())
             pos_cost_class = alpha * ((1 - out_prob) ** gamma) * (-(out_prob + 1e-8).log())
-            cost_class = pos_cost_class[:, tgt_ids] - neg_cost_class[:, tgt_ids] #[num_queries, num_targets]
+            cost_class = pos_cost_class[:, tgt_ids] - neg_cost_class[:, tgt_ids]  # [num_queries, num_targets]
             # L1 loss
-            cost_points = torch.cdist(out_points, tgt_points, p = 1)
+            cost_points = torch.cdist(out_points, tgt_points, p=1)
             # Add cost
-            C = self.cost_class*cost_class + self.cost_points*cost_points
-            C = C.view(bs,num_queries,-1).cpu()
+            C = self.cost_class * cost_class + self.cost_points * cost_points
+            C = C.view(bs, num_queries, -1).cpu()
 
             sizes = [len(v["points"]) for v in targets]
             indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
             return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
 
-class PointsDistance(nn.Module):
-    def __init__(self,dist_type):
 
-        '''
+class PointsDistance(nn.Module):
+    def __init__(self, dist_type):
+
+        """
         Accept two distance type: EMD and Chamfer
-        '''
+        """
         super().__init__()
         self.dist_type = dist_type
-    
-    def _get_src_permutation_idx(self,indices):
+
+    def _get_src_permutation_idx(self, indices):
 
         batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
         src_idx = torch.cat([src for (src, _) in indices])
         return batch_idx, src_idx
 
-    def em_distance(self,outputs,targets):
+    def em_distance(self, outputs, targets):
         with torch.no_grad():
-            bs, num_queries = outputs['pred_points'].shape[:2]
-            out_points = outputs['pred_points'].flatten(0,1) #[batch_size * numqueries,2]
-            tgt_points = torch.cat([v['points'] for v in targets]) #[batch_size * num_targets,2]
-            C = torch.norm(out_points[:,None,:] - tgt_points[None,:,:],p=2,dim=-1) #[batch_size*num_queries,batch_size*num_targets]
-            C = C.view(bs,num_queries,-1).cpu()
+            bs, num_queries = outputs["pred_points"].shape[:2]
+            out_points = outputs["pred_points"].flatten(0, 1)  # [batch_size * numqueries,2]
+            tgt_points = torch.cat([v["points"] for v in targets])  # [batch_size * num_targets,2]
+            C = torch.norm(
+                out_points[:, None, :] - tgt_points[None, :, :], p=2, dim=-1
+            )  # [batch_size*num_queries,batch_size*num_targets]
+            C = C.view(bs, num_queries, -1).cpu()
             sizes = [len(v["points"]) for v in targets]
             indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
-            indices = [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
-        
+            indices = [
+                (torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices
+            ]
+
         idx = self._get_src_permutation_idx(indices)
-        src_points = outputs['pred_points'][idx]
-        tgt_points = torch.cat([t['points'][i] for t, (_,i) in zip(targets,indices)])
+        src_points = outputs["pred_points"][idx]
+        tgt_points = torch.cat([t["points"][i] for t, (_, i) in zip(targets, indices)])
 
-        dists = torch.norm(src_points-tgt_points,p=2,dim=-1)
+        dists = torch.norm(src_points - tgt_points, p=2, dim=-1)
         return torch.mean(dists), indices
-    
-    def chamfer_distance(self,outputs,targets):
+
+    def chamfer_distance(self, outputs, targets):
         with torch.no_grad():
-            bs, num_queries = outputs['pred_points'].shape[:2]
-            out_points = outputs['pred_points'].flatten(0,1) #[batch_size * num_queries,2]
-            tgt_points = torch.cat([v['points'] for v in targets]) #[batch_size * num_targets,2]
-            C = torch.norm(out_points[:,None,:] - tgt_points[None,:,:],p=2,dim=-1) #[batch_size * num_queries, batch_size * num_targets]
-            C = C.view(bs,num_queries,-1) # [batch_size, num queries, num_targets]
+            bs, num_queries = outputs["pred_points"].shape[:2]
+            out_points = outputs["pred_points"].flatten(0, 1)  # [batch_size * num_queries,2]
+            tgt_points = torch.cat([v["points"] for v in targets])  # [batch_size * num_targets,2]
+            C = torch.norm(
+                out_points[:, None, :] - tgt_points[None, :, :], p=2, dim=-1
+            )  # [batch_size * num_queries, batch_size * num_targets]
+            C = C.view(bs, num_queries, -1)  # [batch_size, num queries, num_targets]
 
-            indices_src = torch.argmin(C,dim=1)
-            indices_tgt = torch.argmin(C,dim=2)
+            indices_src = torch.argmin(C, dim=1)
+            indices_tgt = torch.argmin(C, dim=2)
 
-        src_points = outputs['pred_points']
-        tgt_points = torch.stack([v['points'] for v in targets])
-        matched_src = tgt_points[torch.arange(indices_tgt.shape[0]),torch.reshape(indices_tgt,[-1])]
-        matched_tgt = src_points[torch.arange(indices_src.shape[0]),torch.reshape(indices_src,[-1])]
-    
-        src_points = src_points.flatten(0,1)
-        tgt_points = tgt_points.flatten(0,1)
+        src_points = outputs["pred_points"]
+        tgt_points = torch.stack([v["points"] for v in targets])
+        matched_src = tgt_points[torch.arange(indices_tgt.shape[0]), torch.reshape(indices_tgt, [-1])]
+        matched_tgt = src_points[torch.arange(indices_src.shape[0]), torch.reshape(indices_src, [-1])]
 
-        chamfer_dist = torch.mean(torch.norm(src_points - matched_src,p=2,dim=-1)) + \
-                       torch.mean(torch.norm(matched_tgt - tgt_points,p=2,dim=-1))
-        
+        src_points = src_points.flatten(0, 1)
+        tgt_points = tgt_points.flatten(0, 1)
+
+        chamfer_dist = torch.mean(torch.norm(src_points - matched_src, p=2, dim=-1)) + torch.mean(
+            torch.norm(matched_tgt - tgt_points, p=2, dim=-1)
+        )
+
         return chamfer_dist, indices_src
-    
+
     def forward(self, outputs, targets):
-        if self.dist_type == 'emd':
-            return self.em_distance(outputs,targets)
-        elif self.dist_type == 'chamfer':
-            return self.chamfer_distance(outputs,targets)
-        
+        if self.dist_type == "emd":
+            return self.em_distance(outputs, targets)
+        elif self.dist_type == "chamfer":
+            return self.chamfer_distance(outputs, targets)
+
         else:
             raise NotImplementedError("not support other distance")
+
 
 class ChamferDistanceMatching(nn.Module):
     def __init__(self, point_cost, giou_cost):
@@ -136,32 +143,34 @@ class ChamferDistanceMatching(nn.Module):
         self.point_cost = point_cost
         self.giou_cost = giou_cost
 
-    def forward(self,outputs, targets):
-        '''
+    def forward(self, outputs, targets):
+        """
         Expected parameters in the form
         dictionary, expected in the form:
         pred_boxes: [l,t,r,b]: the bounding position corresponds to anchor position
         points: [x,y]: coordinates of each anchor points
         targets: list of dictionary
         boxes: [cx,cy,w,h]: target bounding boxes
-        '''
+        """
         with torch.no_grad():
-            bs, num_queries = outputs['pred_boxes'].shape[:2]
-            out_boxes = outputs['pred_boxes'].flatten(0,1) #[batch_size*num_queries,4]
-            tgt_boxes = torch.cat([v['boxes'] for v in targets]) # [batch_size * num_targets,4]
+            bs, num_queries = outputs["pred_boxes"].shape[:2]
+            out_boxes = outputs["pred_boxes"].flatten(0, 1)  # [batch_size*num_queries,4]
+            tgt_boxes = torch.cat([v["boxes"] for v in targets])  # [batch_size * num_targets,4]
 
-            cost_points = torch.cdist(out_boxes[...,:2],tgt_boxes[...,:2]) #[batch_size*num_queries,batch_size*num_targets]
-            cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_boxes),
-                                             box_cxcywh_to_xyxy(tgt_boxes))
-            
-            C = self.point_cost*cost_points + self.giou_cost*cost_giou
+            cost_points = torch.cdist(
+                out_boxes[..., :2], tgt_boxes[..., :2]
+            )  # [batch_size*num_queries,batch_size*num_targets]
+            cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_boxes), box_cxcywh_to_xyxy(tgt_boxes))
 
-            C = C.view(bs,num_queries,-1).cpu()
-            
-            indices_src = torch.argmin(C,dim=1)
-            indices_tgt = torch.argmin(C,dim=2)
-        
+            C = self.point_cost * cost_points + self.giou_cost * cost_giou
+
+            C = C.view(bs, num_queries, -1).cpu()
+
+            indices_src = torch.argmin(C, dim=1)
+            indices_tgt = torch.argmin(C, dim=2)
+
         return indices_src, indices_tgt
+
 
 class OriginalHungarianMatcher(nn.Module):
     """This class computes an assignment between the targets and the predictions of the network
@@ -171,10 +180,7 @@ class OriginalHungarianMatcher(nn.Module):
     while the others are un-matched (and thus treated as non-objects).
     """
 
-    def __init__(self,
-                 cost_class: float = 1,
-                 cost_bbox: float = 1,
-                 cost_giou: float = 1):
+    def __init__(self, cost_class: float = 1, cost_bbox: float = 1, cost_giou: float = 1):
         """Creates the matcher
 
         Params:
@@ -230,8 +236,7 @@ class OriginalHungarianMatcher(nn.Module):
             cost_bbox = torch.cdist(out_bbox, tgt_bbox, p=1)
 
             # Compute the giou cost betwen boxes
-            cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox),
-                                             box_cxcywh_to_xyxy(tgt_bbox))
+            cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), box_cxcywh_to_xyxy(tgt_bbox))
 
             # Final cost matrix
             C = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou
@@ -240,15 +245,14 @@ class OriginalHungarianMatcher(nn.Module):
             sizes = [len(v["boxes"]) for v in targets]
             indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
             return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
+
+
 def build_matcher(args):
-    return OriginalHungarianMatcher(args.cost_class,
-                                    args.cost_bbox,
-                                    args.cost_giou)
+    return OriginalHungarianMatcher(args.cost_class, args.cost_bbox, args.cost_giou)
 
 
 def build_chamfer_matcher(args):
-    return ChamferDistanceMatching(args.chamfer_point_cost,args.chamfer_giou_cost)
-
+    return ChamferDistanceMatching(args.chamfer_point_cost, args.chamfer_giou_cost)
 
 
 class PointHungarianMatcher(nn.Module):
@@ -258,8 +262,9 @@ class PointHungarianMatcher(nn.Module):
     while the others are un-matched (and thus treated as non-objects).
     """
 
-    def __init__(self,
-                 cost_point: float = 1,):
+    def __init__(
+        self, cost_point: float = 1,
+    ):
         """Creates the matcher
         Params:
             cost_class: This is the relative weight of the classification error in the matching cost

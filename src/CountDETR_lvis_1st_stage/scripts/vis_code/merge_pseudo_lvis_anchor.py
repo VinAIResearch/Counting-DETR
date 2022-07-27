@@ -1,10 +1,12 @@
+import json
 import os
 import os.path as osp
-import json
-from pycocotools.coco import COCO
-import numpy as np
-import cv2
 import random as rd
+
+import cv2
+import numpy as np
+from pycocotools.coco import COCO
+
 
 folder = "./FSCD_LVIS/Pseudo_LVIS/"
 json_path = osp.join(folder, "pseudo_bbox_train_p1.json")
@@ -52,7 +54,7 @@ val_image_id = 1
 val_anno_id = 1
 
 for i in range(1, 5):
-    json_path = osp.join(folder, "pseudo_bbox_train_p"+str(i)+".json")
+    json_path = osp.join(folder, "pseudo_bbox_train_p" + str(i) + ".json")
     this_contents = json.load(open(json_path, "r"))
     coco_api = COCO(json_path)
     this_images = this_contents["images"]
@@ -92,4 +94,3 @@ with open("./FSCD_LVIS/pseudo_lvis_train.json", "w") as handle:
 
 with open("./FSCD_LVIS/pseudo_lvis_val.json", "w") as handle:
     json.dump(pseudo_val, handle)
-

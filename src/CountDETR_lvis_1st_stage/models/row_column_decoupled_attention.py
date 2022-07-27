@@ -5,55 +5,51 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 # ------------------------------------------------------------------------
 import warnings
-import torch
-from torch.nn.functional import  linear,softmax,dropout,pad
-from torch.nn import Linear
-from torch.nn.init import xavier_uniform_
-from torch.nn.init import constant_
-from torch.nn.init import xavier_normal_
-from torch.nn.parameter import Parameter
-from torch.nn.modules import Module
-from torch.nn import functional as F
-
 
 import torch
-
+from torch._jit_internal import List, Optional, _overload, boolean_dispatch
 from torch.nn import grad  # noqa: F401
+from torch.nn import Linear
+from torch.nn import functional as F
+from torch.nn.functional import dropout, linear, pad, softmax
+from torch.nn.init import constant_, xavier_normal_, xavier_uniform_
+from torch.nn.modules import Module
+from torch.nn.parameter import Parameter
 
-from torch._jit_internal import boolean_dispatch, List, Optional, _overload
 
 Tensor = torch.Tensor
 
 
-def multi_head_rcda_forward(query_row,  # type: Tensor
-                            query_col,  # type: Tensor
-                            key_row,  # type: Tensor
-                            key_col,  # type: Tensor
-                            value,  # type: Tensor
-                            embed_dim_to_check,  # type: int
-                            num_heads,  # type: int
-                            in_proj_weight,  # type: Tensor
-                            in_proj_bias,  # type: Tensor
-                            bias_k_row,  # type: Optional[Tensor]
-                            bias_k_col,  # type: Optional[Tensor]
-                            bias_v,  # type: Optional[Tensor]
-                            add_zero_attn,  # type: bool
-                            dropout_p,  # type: float
-                            out_proj_weight,  # type: Tensor
-                            out_proj_bias,  # type: Tensor
-                            training=True,  # type: bool
-                            key_padding_mask=None,  # type: Optional[Tensor]
-                            need_weights=True,  # type: bool
-                            attn_mask=None,  # type: Optional[Tensor]
-                            use_separate_proj_weight=False,  # type: bool
-                            q_row_proj_weight=None,  # type: Optional[Tensor]
-                            q_col_proj_weight=None,  # type: Optional[Tensor]
-                            k_row_proj_weight=None,  # type: Optional[Tensor]
-                            k_col_proj_weight=None,  # type: Optional[Tensor]
-                            v_proj_weight=None,  # type: Optional[Tensor]
-                            static_k=None,  # type: Optional[Tensor]
-                            static_v=None  # type: Optional[Tensor]
-                            ):
+def multi_head_rcda_forward(
+    query_row,  # type: Tensor
+    query_col,  # type: Tensor
+    key_row,  # type: Tensor
+    key_col,  # type: Tensor
+    value,  # type: Tensor
+    embed_dim_to_check,  # type: int
+    num_heads,  # type: int
+    in_proj_weight,  # type: Tensor
+    in_proj_bias,  # type: Tensor
+    bias_k_row,  # type: Optional[Tensor]
+    bias_k_col,  # type: Optional[Tensor]
+    bias_v,  # type: Optional[Tensor]
+    add_zero_attn,  # type: bool
+    dropout_p,  # type: float
+    out_proj_weight,  # type: Tensor
+    out_proj_bias,  # type: Tensor
+    training=True,  # type: bool
+    key_padding_mask=None,  # type: Optional[Tensor]
+    need_weights=True,  # type: bool
+    attn_mask=None,  # type: Optional[Tensor]
+    use_separate_proj_weight=False,  # type: bool
+    q_row_proj_weight=None,  # type: Optional[Tensor]
+    q_col_proj_weight=None,  # type: Optional[Tensor]
+    k_row_proj_weight=None,  # type: Optional[Tensor]
+    k_col_proj_weight=None,  # type: Optional[Tensor]
+    v_proj_weight=None,  # type: Optional[Tensor]
+    static_k=None,  # type: Optional[Tensor]
+    static_v=None,  # type: Optional[Tensor]
+):
     # type: (...) -> Tuple[Tensor, Optional[Tensor]]
     r"""
     Args:
@@ -110,14 +106,12 @@ def multi_head_rcda_forward(query_row,  # type: Tensor
     src_len_row = key_row.size()[2]
     src_len_col = key_col.size()[1]
 
-
     assert embed_dim == embed_dim_to_check
     # assert key.size() == value.size()
 
     head_dim = embed_dim // num_heads
     assert head_dim * num_heads == embed_dim, "embed_dim must be divisible by num_heads"
     scaling = float(head_dim) ** -0.5
-
 
     # This is inline in_proj function with in_proj_weight and in_proj_bias
     _b = in_proj_bias
@@ -172,7 +166,6 @@ def multi_head_rcda_forward(query_row,  # type: Tensor
     q_row = q_row * scaling
     q_col = q_col * scaling
 
-
     q_row = q_row.contiguous().view(tgt_len, bsz * num_heads, head_dim).transpose(0, 1)
     q_col = q_col.contiguous().view(tgt_len, bsz * num_heads, head_dim).transpose(0, 1)
 
@@ -181,24 +174,27 @@ def multi_head_rcda_forward(query_row,  # type: Tensor
     if k_col is not None:
         k_col = k_col.contiguous().view(-1, bsz * num_heads, head_dim).transpose(0, 1)
     if v is not None:
-        v = v.contiguous().permute(1,2,0,3).reshape(src_len_col,src_len_row, bsz*num_heads, head_dim).permute(2,0,1,3)
-
+        v = (
+            v.contiguous()
+            .permute(1, 2, 0, 3)
+            .reshape(src_len_col, src_len_row, bsz * num_heads, head_dim)
+            .permute(2, 0, 1, 3)
+        )
 
     attn_output_weights_row = torch.bmm(q_row, k_row.transpose(1, 2))
     attn_output_weights_col = torch.bmm(q_col, k_col.transpose(1, 2))
     assert list(attn_output_weights_row.size()) == [bsz * num_heads, tgt_len, src_len_row]
     assert list(attn_output_weights_col.size()) == [bsz * num_heads, tgt_len, src_len_col]
 
-
     if key_padding_mask is not None:
-        mask_row=key_padding_mask[:,0,:].unsqueeze(1).unsqueeze(2)
-        mask_col=key_padding_mask[:,:,0].unsqueeze(1).unsqueeze(2)
+        mask_row = key_padding_mask[:, 0, :].unsqueeze(1).unsqueeze(2)
+        mask_col = key_padding_mask[:, :, 0].unsqueeze(1).unsqueeze(2)
 
         attn_output_weights_row = attn_output_weights_row.view(bsz, num_heads, tgt_len, src_len_row)
         attn_output_weights_col = attn_output_weights_col.view(bsz, num_heads, tgt_len, src_len_col)
 
-        attn_output_weights_row = attn_output_weights_row.masked_fill(mask_row,float('-inf'))
-        attn_output_weights_col = attn_output_weights_col.masked_fill(mask_col, float('-inf'))
+        attn_output_weights_row = attn_output_weights_row.masked_fill(mask_row, float("-inf"))
+        attn_output_weights_col = attn_output_weights_col.masked_fill(mask_col, float("-inf"))
 
         attn_output_weights_row = attn_output_weights_row.view(bsz * num_heads, tgt_len, src_len_row)
         attn_output_weights_col = attn_output_weights_col.view(bsz * num_heads, tgt_len, src_len_col)
@@ -209,32 +205,56 @@ def multi_head_rcda_forward(query_row,  # type: Tensor
     attn_output_weights_col = dropout(attn_output_weights_col, p=dropout_p, training=training)
     attn_output_weights_row = dropout(attn_output_weights_row, p=dropout_p, training=training)
 
-    efficient_compute=True
+    efficient_compute = True
     # This config will not affect the performance.
     # It will compute the short edge first which can save the memory and run slightly faster but both of them should get the same results.
     # You can also set it "False" if your graph needs to be always the same.
     if efficient_compute:
-        if src_len_col<src_len_row:
-            b_ein,q_ein,w_ein = attn_output_weights_row.shape
-            b_ein,h_ein,w_ein,c_ein = v.shape
-            attn_output_row = torch.matmul(attn_output_weights_row,v.permute(0,2,1,3).reshape(b_ein,w_ein,h_ein*c_ein)).reshape(b_ein,q_ein,h_ein,c_ein).permute(0,2,1,3)
-            attn_output = torch.matmul(attn_output_weights_col.permute(1,0,2)[:,:,None,:],attn_output_row.permute(2,0,1,3)).squeeze(-2).reshape(tgt_len,bsz,embed_dim)
+        if src_len_col < src_len_row:
+            b_ein, q_ein, w_ein = attn_output_weights_row.shape
+            b_ein, h_ein, w_ein, c_ein = v.shape
+            attn_output_row = (
+                torch.matmul(attn_output_weights_row, v.permute(0, 2, 1, 3).reshape(b_ein, w_ein, h_ein * c_ein))
+                .reshape(b_ein, q_ein, h_ein, c_ein)
+                .permute(0, 2, 1, 3)
+            )
+            attn_output = (
+                torch.matmul(
+                    attn_output_weights_col.permute(1, 0, 2)[:, :, None, :], attn_output_row.permute(2, 0, 1, 3)
+                )
+                .squeeze(-2)
+                .reshape(tgt_len, bsz, embed_dim)
+            )
             ### the following code base on einsum get the same results
             # attn_output_row = torch.einsum("bqw,bhwc->bhqc",attn_output_weights_row,v)
             # attn_output = torch.einsum("bqh,bhqc->qbc",attn_output_weights_col,attn_output_row).reshape(tgt_len,bsz,embed_dim)
         else:
-            b_ein,q_ein,h_ein=attn_output_weights_col.shape
-            b_ein,h_ein,w_ein,c_ein = v.shape
-            attn_output_col = torch.matmul(attn_output_weights_col,v.reshape(b_ein,h_ein,w_ein*c_ein)).reshape(b_ein,q_ein,w_ein,c_ein)
-            attn_output = torch.matmul(attn_output_weights_row[:,:,None,:],attn_output_col).squeeze(-2).permute(1,0,2).reshape(tgt_len, bsz, embed_dim)
+            b_ein, q_ein, h_ein = attn_output_weights_col.shape
+            b_ein, h_ein, w_ein, c_ein = v.shape
+            attn_output_col = torch.matmul(attn_output_weights_col, v.reshape(b_ein, h_ein, w_ein * c_ein)).reshape(
+                b_ein, q_ein, w_ein, c_ein
+            )
+            attn_output = (
+                torch.matmul(attn_output_weights_row[:, :, None, :], attn_output_col)
+                .squeeze(-2)
+                .permute(1, 0, 2)
+                .reshape(tgt_len, bsz, embed_dim)
+            )
             ### the following code base on einsum get the same results
             # attn_output_col = torch.einsum("bqh,bhwc->bqwc", attn_output_weights_col, v)
             # attn_output = torch.einsum("bqw,bqwc->qbc", attn_output_weights_row, attn_output_col).reshape(tgt_len, bsz,embed_dim)
     else:
         b_ein, q_ein, h_ein = attn_output_weights_col.shape
         b_ein, h_ein, w_ein, c_ein = v.shape
-        attn_output_col = torch.matmul(attn_output_weights_col, v.reshape(b_ein, h_ein, w_ein * c_ein)).reshape(b_ein, q_ein, w_ein, c_ein)
-        attn_output = torch.matmul(attn_output_weights_row[:, :, None, :], attn_output_col).squeeze(-2).permute(1, 0, 2).reshape(tgt_len, bsz, embed_dim)
+        attn_output_col = torch.matmul(attn_output_weights_col, v.reshape(b_ein, h_ein, w_ein * c_ein)).reshape(
+            b_ein, q_ein, w_ein, c_ein
+        )
+        attn_output = (
+            torch.matmul(attn_output_weights_row[:, :, None, :], attn_output_col)
+            .squeeze(-2)
+            .permute(1, 0, 2)
+            .reshape(tgt_len, bsz, embed_dim)
+        )
         ### the following code base on einsum get the same results
         # attn_output_col = torch.einsum("bqh,bhwc->bqwc", attn_output_weights_col, v)
         # attn_output = torch.einsum("bqw,bqwc->qbc", attn_output_weights_row, attn_output_col).reshape(tgt_len, bsz,embed_dim)
@@ -242,10 +262,14 @@ def multi_head_rcda_forward(query_row,  # type: Tensor
     attn_output = linear(attn_output, out_proj_weight, out_proj_bias)
 
     if need_weights:
-        return attn_output,torch.einsum("bqw,bqh->qbhw",attn_output_weights_row,attn_output_weights_col).reshape(tgt_len,bsz,num_heads,src_len_col,src_len_row).mean(2)
+        return (
+            attn_output,
+            torch.einsum("bqw,bqh->qbhw", attn_output_weights_row, attn_output_weights_col)
+            .reshape(tgt_len, bsz, num_heads, src_len_col, src_len_row)
+            .mean(2),
+        )
     else:
         return attn_output, None
-
 
 
 class MultiheadRCDA(Module):
@@ -277,13 +301,30 @@ class MultiheadRCDA(Module):
         >>> attn_output, attn_output_weights = multihead_attn(query_row, query_col, key_row, key_col, value)
     """
     __annotations__ = {
-        'bias_k_row': torch._jit_internal.Optional[torch.Tensor],
-        'bias_k_col': torch._jit_internal.Optional[torch.Tensor],
-        'bias_v': torch._jit_internal.Optional[torch.Tensor],
+        "bias_k_row": torch._jit_internal.Optional[torch.Tensor],
+        "bias_k_col": torch._jit_internal.Optional[torch.Tensor],
+        "bias_v": torch._jit_internal.Optional[torch.Tensor],
     }
-    __constants__ = ['q_row_proj_weight', 'q_col_proj_weight', 'k_row_proj_weight', 'k_col_proj_weight', 'v_proj_weight', 'in_proj_weight']
+    __constants__ = [
+        "q_row_proj_weight",
+        "q_col_proj_weight",
+        "k_row_proj_weight",
+        "k_col_proj_weight",
+        "v_proj_weight",
+        "in_proj_weight",
+    ]
 
-    def __init__(self, embed_dim, num_heads, dropout=0., bias=True, add_bias_kv=False, add_zero_attn=False, kdim=None, vdim=None):
+    def __init__(
+        self,
+        embed_dim,
+        num_heads,
+        dropout=0.0,
+        bias=True,
+        add_bias_kv=False,
+        add_zero_attn=False,
+        kdim=None,
+        vdim=None,
+    ):
         super(MultiheadRCDA, self).__init__()
         self.embed_dim = embed_dim
         self.kdim = kdim if kdim is not None else embed_dim
@@ -301,19 +342,19 @@ class MultiheadRCDA(Module):
             self.k_row_proj_weight = Parameter(torch.Tensor(embed_dim, self.kdim))
             self.k_col_proj_weight = Parameter(torch.Tensor(embed_dim, self.kdim))
             self.v_proj_weight = Parameter(torch.Tensor(embed_dim, self.vdim))
-            self.register_parameter('in_proj_weight', None)
+            self.register_parameter("in_proj_weight", None)
         else:
             self.in_proj_weight = Parameter(torch.empty(5 * embed_dim, embed_dim))
-            self.register_parameter('q_row_proj_weight', None)
-            self.register_parameter('q_col_proj_weight', None)
-            self.register_parameter('k_row_proj_weight', None)
-            self.register_parameter('k_col_proj_weight', None)
-            self.register_parameter('v_proj_weight', None)
+            self.register_parameter("q_row_proj_weight", None)
+            self.register_parameter("q_col_proj_weight", None)
+            self.register_parameter("k_row_proj_weight", None)
+            self.register_parameter("k_col_proj_weight", None)
+            self.register_parameter("v_proj_weight", None)
 
         if bias:
             self.in_proj_bias = Parameter(torch.empty(5 * embed_dim))
         else:
-            self.register_parameter('in_proj_bias', None)
+            self.register_parameter("in_proj_bias", None)
         self.out_proj = Linear(embed_dim, embed_dim, bias=bias)
 
         if add_bias_kv:
@@ -338,8 +379,8 @@ class MultiheadRCDA(Module):
             xavier_uniform_(self.v_proj_weight)
 
         if self.in_proj_bias is not None:
-            constant_(self.in_proj_bias, 0.)
-            constant_(self.out_proj.bias, 0.)
+            constant_(self.in_proj_bias, 0.0)
+            constant_(self.out_proj.bias, 0.0)
         if self.bias_k_row is not None:
             xavier_normal_(self.bias_k_row)
         if self.bias_k_col is not None:
@@ -349,13 +390,14 @@ class MultiheadRCDA(Module):
 
     def __setstate__(self, state):
         # Support loading old MultiheadAttention checkpoints generated by v1.1.0
-        if '_qkv_same_embed_dim' not in state:
-            state['_qkv_same_embed_dim'] = True
+        if "_qkv_same_embed_dim" not in state:
+            state["_qkv_same_embed_dim"] = True
 
         super(MultiheadRCDA, self).__setstate__(state)
 
-    def forward(self, query_row, query_col, key_row, key_col, value,
-                key_padding_mask=None, need_weights=False, attn_mask=None):
+    def forward(
+        self, query_row, query_col, key_row, key_col, value, key_padding_mask=None, need_weights=False, attn_mask=None
+    ):
         # type: (Tensor, Tensor, Tensor, Tensor, Tensor, Optional[Tensor], bool, Optional[Tensor]) -> Tuple[Tensor, Optional[Tensor]]
         r"""
     Args:
@@ -394,23 +436,53 @@ class MultiheadRCDA(Module):
         """
         if not self._qkv_same_embed_dim:
             return multi_head_rcda_forward(
-                query_row,query_col, key_row, key_col, value, self.embed_dim, self.num_heads,
-                self.in_proj_weight, self.in_proj_bias,
-                self.bias_k_row,self.bias_k_col, self.bias_v, self.add_zero_attn,
-                self.dropout, self.out_proj.weight, self.out_proj.bias,
+                query_row,
+                query_col,
+                key_row,
+                key_col,
+                value,
+                self.embed_dim,
+                self.num_heads,
+                self.in_proj_weight,
+                self.in_proj_bias,
+                self.bias_k_row,
+                self.bias_k_col,
+                self.bias_v,
+                self.add_zero_attn,
+                self.dropout,
+                self.out_proj.weight,
+                self.out_proj.bias,
                 training=self.training,
-                key_padding_mask=key_padding_mask, need_weights=need_weights,
-                attn_mask=attn_mask, use_separate_proj_weight=True,
-                q_row_proj_weight=self.q_row_proj_weight, q_col_proj_weight=self.q_col_proj_weight,
-                k_row_proj_weight=self.k_row_proj_weight, k_col_proj_weight=self.k_col_proj_weight,
-                v_proj_weight=self.v_proj_weight)
+                key_padding_mask=key_padding_mask,
+                need_weights=need_weights,
+                attn_mask=attn_mask,
+                use_separate_proj_weight=True,
+                q_row_proj_weight=self.q_row_proj_weight,
+                q_col_proj_weight=self.q_col_proj_weight,
+                k_row_proj_weight=self.k_row_proj_weight,
+                k_col_proj_weight=self.k_col_proj_weight,
+                v_proj_weight=self.v_proj_weight,
+            )
         else:
             return multi_head_rcda_forward(
-                query_row,query_col, key_row,key_col, value, self.embed_dim, self.num_heads,
-                self.in_proj_weight, self.in_proj_bias,
-                self.bias_k_row,self.bias_k_col, self.bias_v, self.add_zero_attn,
-                self.dropout, self.out_proj.weight, self.out_proj.bias,
+                query_row,
+                query_col,
+                key_row,
+                key_col,
+                value,
+                self.embed_dim,
+                self.num_heads,
+                self.in_proj_weight,
+                self.in_proj_bias,
+                self.bias_k_row,
+                self.bias_k_col,
+                self.bias_v,
+                self.add_zero_attn,
+                self.dropout,
+                self.out_proj.weight,
+                self.out_proj.bias,
                 training=self.training,
-                key_padding_mask=key_padding_mask, need_weights=need_weights,
-                attn_mask=attn_mask)
-
+                key_padding_mask=key_padding_mask,
+                need_weights=need_weights,
+                attn_mask=attn_mask,
+            )

@@ -1,8 +1,10 @@
 import json
 import os
-from os.path import join
-from pycocotools.coco import COCO
 import random as rd
+from os.path import join
+
+from pycocotools.coco import COCO
+
 
 json_path = "./FSCD_LVIS/point_and_box_train.json"
 point_and_box_annotations = json.load(open(json_path, "r"))
@@ -29,7 +31,7 @@ for img_id in all_img_ids:
         im_45.append(img_id)
     elif len(anno_ids) <= 60 and len(anno_ids) > 50:
         im_56.append(img_id)
-    else :
+    else:
         im_6x.append(img_id)
 
 rd.shuffle(im_23)
@@ -40,23 +42,23 @@ rd.shuffle(im_6x)
 
 train_id = []
 val_id = []
-num_train_23 = int(0.8*len(im_23))
+num_train_23 = int(0.8 * len(im_23))
 train_id.extend(im_23[:num_train_23])
 val_id.extend(im_23[num_train_23:])
 
-num_train_34 = int(0.8*len(im_34))
+num_train_34 = int(0.8 * len(im_34))
 train_id.extend(im_34[:num_train_34])
 val_id.extend(im_34[num_train_34:])
 
-num_train_45 = int(0.8*len(im_45))
+num_train_45 = int(0.8 * len(im_45))
 train_id.extend(im_45[:num_train_45])
 val_id.extend(im_45[num_train_45:])
 
-num_train_56 = int(0.8*len(im_56))
+num_train_56 = int(0.8 * len(im_56))
 train_id.extend(im_56[:num_train_56])
 val_id.extend(im_56[num_train_56:])
 
-num_train_6x = int(0.8*len(im_6x))
+num_train_6x = int(0.8 * len(im_6x))
 train_id.extend(im_6x[:num_train_6x])
 val_id.extend(im_6x[num_train_6x:])
 
@@ -76,13 +78,13 @@ train_point_box["annotations"] = []
 new_img_id = 1
 new_anno_id = 1
 try:
-    for old_img_id  in train_id:
+    for old_img_id in train_id:
         old_img_info = original_images[old_img_id - 1]
         new_image_info = {
-            "id": new_img_id, 
-            "width": old_img_info["width"], 
-            "height": old_img_info["height"], 
-            "file_name": old_img_info["file_name"]
+            "id": new_img_id,
+            "width": old_img_info["width"],
+            "height": old_img_info["height"],
+            "file_name": old_img_info["file_name"],
         }
         anno_ids = coco_api.getAnnIds([old_img_id])
         old_annos = coco_api.loadAnns(anno_ids)
@@ -94,7 +96,7 @@ try:
             new_anno_id += 1
         train_dict["images"].append(new_image_info)
         new_train_point_box_images = point_box_images[old_img_id - 1].copy()
-        new_train_point_box_annos = point_box_annos[old_img_id - 1].copy() 
+        new_train_point_box_annos = point_box_annos[old_img_id - 1].copy()
         new_train_point_box_images["id"] = new_img_id
         new_train_point_box_annos["image_id"] = new_img_id
         train_point_box["images"].append(new_train_point_box_images)
@@ -103,10 +105,13 @@ try:
 except Exception as e:
     print(e)
     import sys
+
     exc_type, exc_obj, exc_tb = sys.exc_info()
     fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
     print(exc_type, fname, exc_tb.tb_lineno)
-    import pdb; pdb.set_trace()
+    import pdb
+
+    pdb.set_trace()
 print(len(train_dict["images"]), len(train_dict["annotations"]))
 
 new_json_path = "./FSCD_LVIS/split_instances_train.json"
@@ -132,13 +137,13 @@ val_point_box["annotations"] = []
 new_img_id = 1
 new_anno_id = 1
 try:
-    for old_img_id  in val_id:
+    for old_img_id in val_id:
         old_img_info = original_images[old_img_id - 1]
         new_image_info = {
-            "id": new_img_id, 
-            "width": old_img_info["width"], 
-            "height": old_img_info["height"], 
-            "file_name": old_img_info["file_name"]
+            "id": new_img_id,
+            "width": old_img_info["width"],
+            "height": old_img_info["height"],
+            "file_name": old_img_info["file_name"],
         }
         anno_ids = coco_api.getAnnIds([old_img_id])
         old_annos = coco_api.loadAnns(anno_ids)
@@ -151,7 +156,7 @@ try:
         val_dict["images"].append(new_image_info)
 
         new_val_point_box_images = point_box_images[old_img_id - 1].copy()
-        new_val_point_box_annos = point_box_annos[old_img_id - 1].copy() 
+        new_val_point_box_annos = point_box_annos[old_img_id - 1].copy()
         new_val_point_box_images["id"] = new_img_id
         new_val_point_box_annos["image_id"] = new_img_id
         val_point_box["images"].append(new_val_point_box_images)
@@ -161,10 +166,13 @@ try:
 except Exception as e:
     print(e)
     import sys
+
     exc_type, exc_obj, exc_tb = sys.exc_info()
     fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
     print(exc_type, fname, exc_tb.tb_lineno)
-    import pdb; pdb.set_trace()
+    import pdb
+
+    pdb.set_trace()
 print(len(val_dict["images"]), len(val_dict["annotations"]))
 
 new_json_path = "./FSCD_LVIS/split_instances_val.json"

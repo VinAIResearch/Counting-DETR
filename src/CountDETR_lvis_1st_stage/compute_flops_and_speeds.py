@@ -9,23 +9,21 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 
 
-from collections import OrderedDict,Counter, defaultdict
-import numpy as np
-from numpy import prod
-from itertools import zip_longest
-import tqdm
 import logging
+import time
 import typing
+from collections import Counter, OrderedDict, defaultdict
+from functools import partial
+from itertools import zip_longest
+
+import numpy as np
 import torch
 import torch.nn as nn
-from functools import partial
-import time
-
-
+import tqdm
+from datasets import build_dataset
 from main import get_args_parser as get_main_args_parser
 from models import build_model
-from datasets import build_dataset
-
+from numpy import prod
 
 
 def get_shape(val: object) -> typing.List[int]:
@@ -47,9 +45,7 @@ def get_shape(val: object) -> typing.List[int]:
         raise ValueError()
 
 
-def addmm_flop_jit(
-    inputs: typing.List[object], outputs: typing.List[object]
-) -> typing.Counter[str]:
+def addmm_flop_jit(inputs: typing.List[object], outputs: typing.List[object]) -> typing.Counter[str]:
     """
     This method counts the flops for fully connected layers with torch script.
     Args:
@@ -106,18 +102,21 @@ def rsqrt_flop_jit(inputs, outputs):
     flop_counter = Counter({"rsqrt": flop})
     return flop_counter
 
+
 def dropout_flop_jit(inputs, outputs):
     input_shapes = [get_shape(v) for v in inputs[:1]]
     flop = prod(input_shapes[0])
     flop_counter = Counter({"dropout": flop})
     return flop_counter
 
+
 def softmax_flop_jit(inputs, outputs):
     # from https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/profiler/internal/flops_registry.py
     input_shapes = [get_shape(v) for v in inputs[:1]]
     flop = prod(input_shapes[0]) * 5
-    flop_counter = Counter({'softmax': flop})
+    flop_counter = Counter({"softmax": flop})
     return flop_counter
+
 
 def _reduction_op_flop_jit(inputs, outputs, reduce_flops=1, finalize_flops=0):
     input_shapes = [get_shape(v) for v in inputs]
@@ -126,16 +125,13 @@ def _reduction_op_flop_jit(inputs, outputs, reduce_flops=1, finalize_flops=0):
     in_elements = prod(input_shapes[0])
     out_elements = prod(output_shapes[0])
 
-    num_flops = (in_elements * reduce_flops
-        + out_elements * (finalize_flops - reduce_flops))
+    num_flops = in_elements * reduce_flops + out_elements * (finalize_flops - reduce_flops)
 
     return num_flops
 
 
 def conv_flop_count(
-    x_shape: typing.List[int],
-    w_shape: typing.List[int],
-    out_shape: typing.List[int],
+    x_shape: typing.List[int], w_shape: typing.List[int], out_shape: typing.List[int],
 ) -> typing.Counter[str]:
     """
     This method counts the flops for convolution. Note only multiplication is
@@ -156,9 +152,7 @@ def conv_flop_count(
     return flop_counter
 
 
-def conv_flop_jit(
-    inputs: typing.List[object], outputs: typing.List[object]
-) -> typing.Counter[str]:
+def conv_flop_jit(inputs: typing.List[object], outputs: typing.List[object]) -> typing.Counter[str]:
     """
     This method counts the flops for convolution using torch script.
     Args:
@@ -184,9 +178,7 @@ def conv_flop_jit(
     return conv_flop_count(x_shape, w_shape, out_shape)
 
 
-def einsum_flop_jit(
-    inputs: typing.List[object], outputs: typing.List[object]
-) -> typing.Counter[str]:
+def einsum_flop_jit(inputs: typing.List[object], outputs: typing.List[object]) -> typing.Counter[str]:
     """
     This method counts the flops for the einsum operation. We currently support
     two einsum operations: "nct,ncp->ntp" and "ntg,ncg->nct".
@@ -232,9 +224,7 @@ def einsum_flop_jit(
         raise NotImplementedError("Unsupported einsum operation.")
 
 
-def matmul_flop_jit(
-    inputs: typing.List[object], outputs: typing.List[object]
-) -> typing.Counter[str]:
+def matmul_flop_jit(inputs: typing.List[object], outputs: typing.List[object]) -> typing.Counter[str]:
     """
     This method counts the flops for matmul.
     Args:
@@ -252,22 +242,20 @@ def matmul_flop_jit(
     assert len(input_shapes) == 2
     assert input_shapes[0][-1] == input_shapes[1][-2]
 
-    dim_len=len(input_shapes[1])
-    assert dim_len>=2
+    dim_len = len(input_shapes[1])
+    assert dim_len >= 2
     batch = 1
-    for i in range(dim_len-2):
+    for i in range(dim_len - 2):
         assert input_shapes[0][i] == input_shapes[1][i]
         batch *= input_shapes[0][i]
 
-    #(b,m,c) x (b,c,n), flop = bmnc
+    # (b,m,c) x (b,c,n), flop = bmnc
     flop = batch * input_shapes[0][-2] * input_shapes[0][-1] * input_shapes[1][-1]
     flop_counter = Counter({"matmul": flop})
     return flop_counter
 
 
-def batchnorm_flop_jit(
-    inputs: typing.List[object], outputs: typing.List[object]
-) -> typing.Counter[str]:
+def batchnorm_flop_jit(inputs: typing.List[object], outputs: typing.List[object]) -> typing.Counter[str]:
     """
     This method counts the flops for batch norm.
     Args:
@@ -287,9 +275,6 @@ def batchnorm_flop_jit(
     return flop_counter
 
 
-
-
-
 # A dictionary that maps supported operations to their flop count jit handles.
 _SUPPORTED_OPS: typing.Dict[str, typing.Callable] = {
     "aten::addmm": addmm_flop_jit,
@@ -298,14 +283,14 @@ _SUPPORTED_OPS: typing.Dict[str, typing.Callable] = {
     "aten::matmul": matmul_flop_jit,
     "aten::batch_norm": batchnorm_flop_jit,
     "aten::bmm": bmm_flop_jit,
-    "aten::add": partial(basic_binary_op_flop_jit, name='aten::add'),
-    "aten::add_": partial(basic_binary_op_flop_jit, name='aten::add_'),
-    "aten::mul": partial(basic_binary_op_flop_jit, name='aten::mul'),
-    "aten::sub": partial(basic_binary_op_flop_jit, name='aten::sub'),
-    "aten::div": partial(basic_binary_op_flop_jit, name='aten::div'),
-    "aten::floor_divide": partial(basic_binary_op_flop_jit, name='aten::floor_divide'),
-    "aten::relu": partial(basic_binary_op_flop_jit, name='aten::relu'),
-    "aten::relu_": partial(basic_binary_op_flop_jit, name='aten::relu_'),
+    "aten::add": partial(basic_binary_op_flop_jit, name="aten::add"),
+    "aten::add_": partial(basic_binary_op_flop_jit, name="aten::add_"),
+    "aten::mul": partial(basic_binary_op_flop_jit, name="aten::mul"),
+    "aten::sub": partial(basic_binary_op_flop_jit, name="aten::sub"),
+    "aten::div": partial(basic_binary_op_flop_jit, name="aten::div"),
+    "aten::floor_divide": partial(basic_binary_op_flop_jit, name="aten::floor_divide"),
+    "aten::relu": partial(basic_binary_op_flop_jit, name="aten::relu"),
+    "aten::relu_": partial(basic_binary_op_flop_jit, name="aten::relu_"),
     "aten::rsqrt": rsqrt_flop_jit,
     "aten::softmax": softmax_flop_jit,
     "aten::dropout": dropout_flop_jit,
@@ -363,9 +348,7 @@ def flop_count(
     model: nn.Module,
     inputs: typing.Tuple[object, ...],
     whitelist: typing.Union[typing.List[str], None] = None,
-    customized_ops: typing.Union[
-        typing.Dict[str, typing.Callable], None
-    ] = None,
+    customized_ops: typing.Union[typing.Dict[str, typing.Callable], None] = None,
 ) -> typing.DefaultDict[str, float]:
     """
     Given a model and an input to the model, compute the Gflops of the given
@@ -398,10 +381,7 @@ def flop_count(
         whitelist_set = set(whitelist)
 
     # Torch script does not support parallell torch models.
-    if isinstance(
-        model,
-        (nn.parallel.distributed.DistributedDataParallel, nn.DataParallel),
-    ):
+    if isinstance(model, (nn.parallel.distributed.DistributedDataParallel, nn.DataParallel),):
         model = model.module  # pyre-ignore
 
     assert set(whitelist_set).issubset(
@@ -450,20 +430,19 @@ def flop_count(
     return final_count
 
 
-
-
-
 def get_dataset(coco_path):
     """
     Gets the COCO dataset used for computing the flops on
     """
+
     class DummyArgs:
         pass
+
     args = DummyArgs()
     args.dataset_file = "coco"
     args.coco_path = coco_path
     args.masks = False
-    dataset = build_dataset(image_set='val', args=args)
+    dataset = build_dataset(image_set="val", args=args)
     return dataset
 
 
@@ -487,12 +466,11 @@ def fmt_res(data):
     return data.mean(), data.std(), data.min(), data.max()
 
 
-
 def benchmark():
 
     main_args = get_main_args_parser().parse_args()
 
-    dataset = build_dataset('val', main_args)
+    dataset = build_dataset("val", main_args)
     model, _, _ = build_model(main_args)
     model.cuda()
     model.eval()
@@ -506,16 +484,17 @@ def benchmark():
         tmp = []
         tmp2 = []
         for img in tqdm.tqdm(images):
-            inputs = [img.to('cuda')]
+            inputs = [img.to("cuda")]
             res = flop_count(model, (inputs,))
             t = measure_time(model, inputs)
             tmp.append(sum(res.values()))
             tmp2.append(t)
 
-    res = {'flops': fmt_res(np.array(tmp)), 'time': fmt_res(np.array(tmp2))}
+    res = {"flops": fmt_res(np.array(tmp)), "time": fmt_res(np.array(tmp2))}
 
     return res
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     res = benchmark()
     print(res)

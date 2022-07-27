@@ -1,9 +1,11 @@
+import argparse
+import json
 import os
 from os.path import join
-import json
-import argparse
-from pycocotools.coco import COCO
+
 import cv2
+from pycocotools.coco import COCO
+
 
 def first_visualize_data(json_path, output_folder):
     os.makedirs(output_folder, exist_ok=True)
@@ -19,13 +21,14 @@ def first_visualize_data(json_path, output_folder):
         for anno in annos:
             box = anno["bbox"]
             x_cen, y_cen, w, h = box
-            xmin, ymin, = x_cen - w/2, y_cen - h/2
+            xmin, ymin, = x_cen - w / 2, y_cen - h / 2
             pred_box = [int(xmin), int(ymin), int(w), int(h)]
             pred_x, pred_y, pred_w, pred_h = pred_box
-            img = cv2.rectangle(img, (pred_x, pred_y), (pred_x+pred_w, pred_y+pred_h), (0, 255, 0), 1)
+            img = cv2.rectangle(img, (pred_x, pred_y), (pred_x + pred_w, pred_y + pred_h), (0, 255, 0), 1)
         output_path = join(output_folder, img_name)
         cv2.imwrite(output_path, img)
-    return 
+    return
+
 
 def second_visualize_data(json_path, output_folder):
     os.makedirs(output_folder, exist_ok=True)
@@ -44,15 +47,17 @@ def second_visualize_data(json_path, output_folder):
             img = cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 1)
         output_path = join(output_folder, img_name)
         cv2.imwrite(output_path, img)
-    return 
+    return
+
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('Visulize data', add_help=False)
-    parser.add_argument('--json_path', required=True, type=str)
-    parser.add_argument('--output_dir', required=True, type=str)
+    parser = argparse.ArgumentParser("Visulize data", add_help=False)
+    parser.add_argument("--json_path", required=True, type=str)
+    parser.add_argument("--output_dir", required=True, type=str)
 
     args = parser.parse_args()
     return args
+
 
 if __name__ == "__main__":
     args = get_args_parser()
