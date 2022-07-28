@@ -22,20 +22,10 @@ from typing import List, Optional
 
 import torch
 import torch.distributed as dist
-import torch.nn as nn
 
 # needed due to empty tensor bug in pytorch and torchvision 0.5
 import torchvision
-from packaging import version
 from torch import Tensor
-
-
-def variance_voting(outputs_coord, outputs_var, out_logits):
-    import pdb
-
-    pdb.set_trace()
-
-    return
 
 
 class SmoothedValue(object):
@@ -284,9 +274,6 @@ def get_sha():
 
 
 def collate_fn(batch):
-    import pdb
-
-    pdb.set_trace()
     batch = list(zip(*batch))
     batch[0] = nested_tensor_from_tensor_list(batch[0])
     return tuple(batch)

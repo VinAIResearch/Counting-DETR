@@ -7,19 +7,14 @@ import json
 import logging
 import os
 import os.path as osp
-import pickle
 from collections import OrderedDict
 
 import cv2
-import detectron2.utils.comm as comm
 import numpy as np
-import pycocotools.mask as mask_util
 import torch
-from detectron2.data import MetadataCatalog
-from detectron2.data.datasets.coco import convert_to_coco_json
 from detectron2.evaluation.evaluator import DatasetEvaluator
 from detectron2.evaluation.fast_eval_api import COCOeval_opt as COCOeval
-from detectron2.structures import Boxes, BoxMode, pairwise_iou
+from detectron2.structures import BoxMode
 from detectron2.utils.logger import create_small_table
 from fvcore.common.file_io import PathManager
 from pycocotools.coco import COCO

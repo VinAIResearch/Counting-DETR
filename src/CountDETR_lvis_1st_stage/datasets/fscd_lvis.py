@@ -1,6 +1,5 @@
 import json
 import os
-import random
 
 import numpy as np
 from PIL import Image
@@ -223,7 +222,7 @@ class FSCD_LVIS_Test(Dataset):
 
         ann_ids = self.coco.getAnnIds([img_id])
         anns = self.coco.loadAnns(ids=ann_ids)
-        bboxes = np.array([instance["bbox"] for instance in anns], dtype=np.float32)
+        # bboxes = np.array([instance["bbox"] for instance in anns], dtype=np.float32)
         ex_bboxes = self.count_anno["annotations"][idx]["boxes"]
         all_points = np.array(self.count_anno["annotations"][idx]["points"], dtype=np.float32)
 

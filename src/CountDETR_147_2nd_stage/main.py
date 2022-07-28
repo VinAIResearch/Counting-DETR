@@ -6,7 +6,7 @@ from pathlib import Path
 import torch
 import util.misc as utils
 from data.fsc147 import FSC147Dataset
-from engine import evaluate, train_one_epoch
+from engine import train_one_epoch
 from models import build_model
 from torch.utils.data import DataLoader
 
@@ -145,7 +145,6 @@ def main(args):
     dataset_val = FSC147Dataset(args, split="val")
 
     dataloader_train = DataLoader(dataset_train, batch_size=1, shuffle=True)
-    dataloader_val = DataLoader(dataset_val, batch_size=1, shuffle=True)
 
     def match_name_keywords(n, name_keywords):
         out = False

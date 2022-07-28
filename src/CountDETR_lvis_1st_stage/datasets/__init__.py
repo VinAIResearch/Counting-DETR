@@ -8,7 +8,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 # ------------------------------------------------------------------------
 
-from .fscd_147 import build_fscd_147, build_fscd_147_points, build_fscd_test
 from .fscd_lvis import build_fscd_lvis, build_fscd_lvis_points, build_fscd_lvis_test
 
 

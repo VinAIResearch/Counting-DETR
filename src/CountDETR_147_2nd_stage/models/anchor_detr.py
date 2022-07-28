@@ -15,7 +15,6 @@ import copy
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torch.nn.modules import loss
 from util import box_ops
 from util.misc import (
     NestedTensor,

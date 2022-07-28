@@ -12,22 +12,10 @@ Plotting utilities to visualize training logs.
 """
 from pathlib import Path, PurePath
 
-import cv2
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import torch
-
-
-def draw_pseudo_label(image, pred_points, pred_boxes):
-    for pred_point in pred_points:
-        x, y = int(pred_point[0]), int(pred_point[1])
-        image = cv2.circle(image, (x, y), 2, (255, 0, 200), 2)
-    for pred_box in pred_boxes:
-        x1, y1, x2, y2 = pred_box
-        x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-        image = cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-    return image
 
 
 def plot_logs(logs, fields=("class_error", "loss_bbox_unscaled", "mAP"), ewm_col=0, log_name="log.txt"):

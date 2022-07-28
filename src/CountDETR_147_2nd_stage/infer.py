@@ -46,12 +46,8 @@ def infer(model, criterion, data_loader, device, output_dir, split="test"):
 
     for ret in metric_logger.log_every(data_loader, 10000, header):
         image = ret["image"].to(device)
-        if "sampled_points" in ret.keys():
-            sampled_points = ret["sampled_points"].squeeze(0).numpy()
-        else:
-            sampled_points = None
         rects = ret["exemplar_boxes"].to(device)
-        # all_outputs = model(image, points=sampled_points, rects=rects)
+
         all_outputs = model(image, rects=rects)
         outputs = all_outputs[0]
         ref_points = all_outputs[1]
@@ -72,7 +68,7 @@ def infer(model, criterion, data_loader, device, output_dir, split="test"):
         losses_reduced_scaled = sum(loss_dict_reduced_scaled.values())
         loss_value = losses_reduced_scaled.item()
         metric_logger.update(loss=loss_value, **loss_dict_reduced_scaled, **loss_dict_reduced_unscaled)
-        # metric_logger.update(loss=loss_value)
+        metric_logger.update(loss=loss_value)
         # metric_logger.update(class_error=loss_dict_reduced['class_error'])
         out_logits, out_bbox = outputs["pred_logits"], outputs["pred_boxes"]
 
@@ -287,35 +283,6 @@ def main(args):
                 break
         return out
 
-    param_dicts = [
-        {
-            "params": [
-                p
-                for n, p in model_without_ddp.named_parameters()
-                if not match_name_keywords(n, args.lr_backbone_names)
-                and not match_name_keywords(n, args.lr_linear_proj_names)
-                and p.requires_grad
-            ],
-            "lr": args.lr,
-        },
-        {
-            "params": [
-                p
-                for n, p in model_without_ddp.named_parameters()
-                if match_name_keywords(n, args.lr_backbone_names) and p.requires_grad
-            ],
-            "lr": args.lr_backbone,
-        },
-        {
-            "params": [
-                p
-                for n, p in model_without_ddp.named_parameters()
-                if match_name_keywords(n, args.lr_linear_proj_names) and p.requires_grad
-            ],
-            "lr": args.lr * args.lr_linear_proj_mult,
-        },
-    ]
-
     output_dir = Path(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
 
@@ -339,3 +306,4 @@ if __name__ == "__main__":
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     main(args)
+    

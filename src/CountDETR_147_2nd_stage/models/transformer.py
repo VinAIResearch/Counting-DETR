@@ -9,11 +9,10 @@
 # ------------------------------------------------------------------------
 import copy
 import math
-from typing import List, Optional
 
 import torch
 import torch.nn.functional as F
-from torch import Tensor, nn
+from torch import nn
 from util.misc import inverse_sigmoid
 
 from .row_column_decoupled_attention import MultiheadRCDA

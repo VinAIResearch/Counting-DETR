@@ -10,15 +10,10 @@
 """
 This file provides the definition of the convolutional heads used to predict masks, as well as the losses
 """
-import io
-from collections import defaultdict
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import util.box_ops as box_ops
-from PIL import Image
-from util.misc import NestedTensor, interpolate, nested_tensor_from_tensor_list
+from util.misc import NestedTensor, nested_tensor_from_tensor_list
 
 
 class DETRsegm(nn.Module):

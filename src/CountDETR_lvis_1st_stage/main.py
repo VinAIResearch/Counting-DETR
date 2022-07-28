@@ -14,17 +14,13 @@ import os
 import random
 import time
 from pathlib import Path
-from subprocess import check_output
 
-import datasets
-import datasets.samplers as samplers
 import numpy as np
 import torch
 import util.misc as utils
 from datasets import build_dataset
-from engine import evaluate, generate_pseudo_label, test, train_one_epoch
+from engine import  generate_pseudo_label, test, train_one_epoch
 from models import build_model
-from numpy.core.arrayprint import DatetimeFormat
 from torch.utils.data import DataLoader
 
 

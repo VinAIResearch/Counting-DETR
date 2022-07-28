@@ -8,24 +8,17 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 # ------------------------------------------------------------------------
 import argparse
-import datetime
 import json
 import os
 import os.path as osp
 import random
-import time
 from pathlib import Path
-from subprocess import check_output
 
-import datasets
-import datasets.samplers as samplers
 import numpy as np
 import torch
 import util.misc as utils
 from datasets import build_dataset
-from engine import evaluate
 from models import build_model
-from numpy.core.arrayprint import DatetimeFormat
 from torch.utils.data import DataLoader
 
 
@@ -284,11 +277,6 @@ def main(args):
             "lr": args.lr * args.lr_linear_proj_mult,
         },
     ]
-    if args.sgd:
-        optimizer = torch.optim.SGD(param_dicts, lr=args.lr, momentum=0.9, weight_decay=args.weight_decay)
-    else:
-        optimizer = torch.optim.AdamW(param_dicts, lr=args.lr, weight_decay=args.weight_decay)
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_drop)
 
     if args.distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
@@ -302,7 +290,7 @@ def main(args):
     os.makedirs(output_dir, exist_ok=True)
 
     checkpoint = torch.load(args.resume, map_location="cpu")
-    model_dict = model_without_ddp.state_dict()
+
     pretrained_dict = checkpoint["model"]
     missing_keys, unexpected_keys = model_without_ddp.load_state_dict(pretrained_dict, strict=False)
     unexpected_keys = [k for k in unexpected_keys if not (k.endswith("total_params") or k.endswith("total_ops"))]

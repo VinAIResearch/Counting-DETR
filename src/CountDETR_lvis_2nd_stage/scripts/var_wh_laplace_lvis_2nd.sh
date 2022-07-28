@@ -1,26 +1,23 @@
-#!/bin/bash 
-python3.7 main.py \
---data_path ./FSCD_LVIS/ \
---output_dir ./outputs/var_wh_laplace_2nd \
---num_workers 0 \
---spatial_prior grid \
---batch_size 1 \
---no_aux_loss \
---num_query_pattern 1 \
---num_query_position 600 \
---resume ./pretrained_models/AnchorDETR_r50_c5.pth
-# --resume ./pretrained_models/AnchorDETR_r50_c5.pth && \ 
+#!/bin/bash -e
+#SBATCH --job-name=anchor_lvis
+#SBATCH --output=/lustre/scratch/client/vinai/users/chauph12/LVIS_exps/FewShotDETR_var_wh_laplace_lvis_2nd_stage/slurm_%A.out
+#SBATCH --error=/lustre/scratch/client/vinai/users/chauph12/LVIS_exps/FewShotDETR_var_wh_laplace_lvis_2nd_stage/slurm_%A.err
 
-# python3.7 infer.py \
-# --data_path ./FSCD_LVIS/ \
-# --output_dir ./outputs/var_wh_laplace_2nd/ \
-# --num_workers 0 \
-# --spatial_prior grid \
-# --batch_size 1 \
-# --no_aux_loss \
-# --num_query_pattern 1 \
-# --num_query_position 600 \
-# --checkpoint_path ./outputs/var_wh_laplace_2nd/detr_retrain.pth && \
+#SBATCH --gpus=1
 
-# python3.7 offline_lvis_evaluator.py --pred_json_path ./outputs/var_wh_laplace_2nd/predictions_test.json \
-# --output_dir ./outputs/var_wh_laplace_2nd
+#SBATCH --nodes=1
+
+#SBATCH --mem-per-gpu=36G
+
+#SBATCH --cpus-per-gpu=8
+
+#SBATCH --partition=research
+
+#SBATCH --mail-type=all 
+#SBATCH --mail-user=v.chauph12@vinai.io 
+srun --container-image="harbor.vinai-systems.com#research/thanhnv57:pytorch18_cuda102_detectron206" \
+--container-mounts=/lustre/scratch/client/vinai/users/chauph12/LVIS_exps/FewShotDETR_var_wh_laplace_lvis_2nd_stage/:/workspace/ \
+ sh ./scripts/var_wh_laplace_lvis_2nd.sh
+# dgxuser@sdc2-hpc-login-mgmt001:~$ sbatch container.sh
+#  sbatch container.sh
+

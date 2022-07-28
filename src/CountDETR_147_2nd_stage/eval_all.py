@@ -14,10 +14,9 @@ from collections import OrderedDict
 import cv2
 import numpy as np
 import torch
-from detectron2.data.datasets.coco import convert_to_coco_json
 from detectron2.evaluation.evaluator import DatasetEvaluator
 from detectron2.evaluation.fast_eval_api import COCOeval_opt as COCOeval
-from detectron2.structures import Boxes, BoxMode, pairwise_iou
+from detectron2.structures import BoxMode
 from detectron2.utils.logger import create_small_table
 from fvcore.common.file_io import PathManager
 from pycocotools.coco import COCO
@@ -148,7 +147,7 @@ class COCOEvaluator(DatasetEvaluator):
             outputs: the outputs of a COCO model. It is a list of dicts with key
                 "instances" that contains :class:`Instances`.
         """
-        if self._image_set == None:
+        if self._image_set is None:
             img_ids = self.pred_coco_api.getImgIds()
         else:
             img_ids = self._image_set
@@ -192,10 +191,7 @@ class COCOEvaluator(DatasetEvaluator):
                     ys = sampled_points[1]
                     for (x, y) in zip(xs, ys):
                         img = cv2.circle(img, (x, y), 2, (255, 0, 0), 1)
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                fontScale = 1
-                color = (0, 0, 0)
-                thickness = 1
+
                 for idx, pred_anno in enumerate(pred_annos):
                     pred_box = pred_anno["bbox"]
 
@@ -211,15 +207,8 @@ class COCOEvaluator(DatasetEvaluator):
                     pred_point = pred_anno["point"]
                     img = cv2.circle(img, (pred_point[0], pred_point[1]), 5, (255, 255, 0), 1)
                     img = cv2.rectangle(img, (pred_x, pred_y), (pred_x + pred_w, pred_y + pred_h), (0, 255, 0), 1)
-                    # img = cv2.putText(img, str(idx), (x_cen, y_cen), font,
-                    #             fontScale, color, thickness, cv2.LINE_AA)
-                    img = cv2.circle(img, (x_cen, y_cen), 3, (0, 0, 255), 1)
-                    score = pred_anno["score"]
-                    write_str = str(idx) + "__" + str(score)
-                    org = (5, (idx + 1) * 25 + 2)
 
-                    # score_img = cv2.putText(score_img, write_str, org, font,
-                    #             fontScale, color, thickness, cv2.LINE_AA)
+                    img = cv2.circle(img, (x_cen, y_cen), 3, (0, 0, 255), 1)
 
                 gt_boxes = []
                 gt_anno_ids = self._coco_api.getAnnIds([img_id])
