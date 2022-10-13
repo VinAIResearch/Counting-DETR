@@ -65,6 +65,11 @@ Second, download *our FSCD-147 and FSCD-LVIS datasets* from the below link:
 https://drive.google.com/drive/folders/14qzZaV4S8EBUj3yEkgrDQC7iErHxSPjl?usp=sharing
 ```
 
+In case, above link doens't work, use following link:
+```
+https://drive.google.com/drive/folders/1tlHZIg6X3jp6qARTxKh0kMsNvuIQop9P?usp=sharing
+```
+
 Extract each dataset for each dataset to the corresponding folder. For example, to conduct experiment for 1st stage of FSCD-147 dataset, extract `FSCD_147.zip` to  `src/CountDETR_147_1st_stage`. Folder structure should be like:
 
 ```
