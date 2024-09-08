@@ -64,6 +64,11 @@ Second, download *our FSCD-147 and FSCD-LVIS datasets* from the below link:
 ```
 https://drive.google.com/drive/folders/14qzZaV4S8EBUj3yEkgrDQC7iErHxSPjl?usp=sharing
 ```
+By downloading this dataset, USER agrees:
+- to use the dataset for research or educational purposes only.
+- to not distribute the dataset or part of the dataset in any original or modified form.
+- and to cite our paper whenever the dataset is used to help produce published results.
+
 
 In case, above link doens't work, use following link:
 ```
